@@ -1,0 +1,143 @@
+{
+  "title": "Posti",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Määritä Posti",
+        "menu_options": {
+          "tracking": "Seurantakoodit",
+          "account": "OmaPosti-tili (automaattinen tuonti)"
+        }
+      },
+      "tracking": {
+        "title": "Määritä Posti-seurantakoodit",
+        "description": "Postin seuranta ei vaadi tiliä — keskus luodaan heti. Lisää lähetykset myöhemmin asetuksista tai `posti.track_parcel`-palvelulla."
+      },
+      "account": {
+        "title": "Määritä OmaPosti-tili",
+        "description": "Kirjaudu kerran tuodaksesi lähetykset OmaPosti-tilistäsi. Salasanaa ei tallenneta.",
+        "data": {
+          "username": "Käyttäjätunnus",
+          "password": "Salasana"
+        }
+      },
+      "reauth_confirm": {
+        "title": "OmaPosti-kirjautuminen vanhentunut",
+        "description": "Posti ei enää hyväksy tallennettuja tunnisteita käyttäjälle {username}. Anna kyseisen tilin salasana uudelleen.",
+        "data": {
+          "password": "Salasana"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Kirjautuminen näillä tiedoilla epäonnistui. Kirjautuminen ei välttämättä toimi, jos tilillä on kaksivaiheinen tunnistautuminen käytössä.",
+      "cannot_connect": "Yhteyttä OmaPosti-tilipalveluun ei saatu."
+    },
+    "abort": {
+      "already_configured": "Posti on jo määritetty.",
+      "reauth_successful": "OmaPosti-kirjautuminen uusittiin onnistuneesti.",
+      "unique_id_mismatch": "Tämä kirjautuminen kuuluu toiselle OmaPosti-tilille. Kirjaudu sillä tilillä, jolle tämä yhteys on määritetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Postin asetukset",
+        "menu_options": {
+          "parcels": "Lähetykset",
+          "settings": "Asetukset"
+        }
+      },
+      "parcels": {
+        "title": "Hallitse lähetyksiä",
+        "data": {
+          "tracking_codes": "Seurantakoodit"
+        }
+      },
+      "settings": {
+        "title": "Asetukset",
+        "data": {
+          "delivered_filter_type": "Toimitetut lähetykset: suodata",
+          "delivered_filter_amount": "Toimitetut lähetykset: määrä",
+          "include_history": "Sisällytä tilahistoria"
+        }
+      }
+    },
+    "error": {
+      "invalid_tracking_code": "Tämä ei näytä Postin seurantakoodilta."
+    }
+  },
+  "selector": {
+    "delivered_filter_type": {
+      "options": {
+        "days": "Päivää",
+        "parcels": "Lähetysten määrä"
+      }
+    }
+  },
+  "services": {
+    "track_parcel": {
+      "name": "Seuraa lähetystä",
+      "description": "Aloita lähetyksen seuranta Postin seurantakoodilla.",
+      "fields": {
+        "tracking_code": {
+          "name": "Seurantakoodi",
+          "description": "Postin seurantakoodi."
+        }
+      }
+    },
+    "untrack_parcel": {
+      "name": "Lopeta lähetyksen seuranta",
+      "description": "Lopeta lähetyksen seuranta seurantakoodin perusteella.",
+      "fields": {
+        "tracking_code": {
+          "name": "Seurantakoodi",
+          "description": "Seurantakoodi, jonka seuranta lopetetaan."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "Lähetys rekisteröitiin",
+      "parcel_status_changed": "Lähetyksen tila muuttui",
+      "parcel_delivered": "Lähetys toimitettiin",
+      "parcel_delivery_time_changed": "Lähetyksen arvioitu toimitusaika muuttui"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Päivitä"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Toimitukset"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Saapuvat lähetykset",
+        "unit_of_measurement": "lähetystä"
+      },
+      "next_delivery": {
+        "name": "Seuraava toimitus"
+      },
+      "awaiting_pickup": {
+        "name": "Noudettavissa",
+        "unit_of_measurement": "lähetystä"
+      },
+      "delivered_parcels": {
+        "name": "Toimitetut lähetykset",
+        "unit_of_measurement": "lähetystä"
+      },
+      "last_update": {
+        "name": "Viimeisin onnistunut päivitys"
+      },
+      "parcel": {
+        "name": "Lähetys {barcode}"
+      }
+    }
+  }
+}

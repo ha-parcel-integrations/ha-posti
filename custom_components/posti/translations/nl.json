@@ -1,0 +1,143 @@
+{
+  "title": "Posti",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Posti instellen",
+        "menu_options": {
+          "tracking": "Trackingcodes",
+          "account": "OmaPosti-account (automatisch importeren)"
+        }
+      },
+      "tracking": {
+        "title": "Posti-trackingcodes instellen",
+        "description": "Posti-tracking heeft geen account nodig — de hub wordt direct aangemaakt. Pakketten voeg je daarna toe via de integratie-opties of de service `posti.track_parcel`."
+      },
+      "account": {
+        "title": "OmaPosti-account instellen",
+        "description": "Log eenmalig in om pakketten uit je OmaPosti-account te importeren. Je wachtwoord wordt nooit opgeslagen.",
+        "data": {
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "OmaPosti-aanmelding verlopen",
+        "description": "Posti accepteert de opgeslagen tokens voor {username} niet meer. Voer het wachtwoord van dat account opnieuw in.",
+        "data": {
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Aanmelden met deze gegevens is niet gelukt. Bij een account met tweestapsverificatie werkt aanmelden hier mogelijk niet.",
+      "cannot_connect": "Kan geen verbinding maken met de OmaPosti-accountservice."
+    },
+    "abort": {
+      "already_configured": "Posti is al ingesteld.",
+      "reauth_successful": "OmaPosti is opnieuw geauthenticeerd.",
+      "unique_id_mismatch": "Deze aanmelding hoort bij een ander OmaPosti-account. Meld je aan met het account waarvoor deze integratie is ingesteld."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Posti-opties",
+        "menu_options": {
+          "parcels": "Pakketten",
+          "settings": "Instellingen"
+        }
+      },
+      "parcels": {
+        "title": "Pakketten beheren",
+        "data": {
+          "tracking_codes": "Trackingcodes"
+        }
+      },
+      "settings": {
+        "title": "Instellingen",
+        "data": {
+          "delivered_filter_type": "Bezorgde pakketten: filteren op",
+          "delivered_filter_amount": "Bezorgde pakketten: aantal",
+          "include_history": "Statusgeschiedenis toevoegen"
+        }
+      }
+    },
+    "error": {
+      "invalid_tracking_code": "Dit lijkt geen Posti-trackingcode."
+    }
+  },
+  "selector": {
+    "delivered_filter_type": {
+      "options": {
+        "days": "Dagen",
+        "parcels": "Aantal pakketten"
+      }
+    }
+  },
+  "services": {
+    "track_parcel": {
+      "name": "Pakket volgen",
+      "description": "Begin met het volgen van een Posti-pakket via de trackingcode.",
+      "fields": {
+        "tracking_code": {
+          "name": "Trackingcode",
+          "description": "De Posti-trackingcode."
+        }
+      }
+    },
+    "untrack_parcel": {
+      "name": "Pakket niet meer volgen",
+      "description": "Stop met het volgen van een Posti-pakket via de trackingcode.",
+      "fields": {
+        "tracking_code": {
+          "name": "Trackingcode",
+          "description": "De Posti-trackingcode om niet meer te volgen."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "Een pakket is geregistreerd",
+      "parcel_status_changed": "De status van een pakket is gewijzigd",
+      "parcel_delivered": "Een pakket is bezorgd",
+      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Verversen"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Bezorgingen"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Inkomende pakketten",
+        "unit_of_measurement": "pakketten"
+      },
+      "next_delivery": {
+        "name": "Volgende bezorging"
+      },
+      "awaiting_pickup": {
+        "name": "Klaar voor afhalen",
+        "unit_of_measurement": "pakketten"
+      },
+      "delivered_parcels": {
+        "name": "Bezorgde pakketten",
+        "unit_of_measurement": "pakketten"
+      },
+      "last_update": {
+        "name": "Laatste succesvolle update"
+      },
+      "parcel": {
+        "name": "Pakket {barcode}"
+      }
+    }
+  }
+}
