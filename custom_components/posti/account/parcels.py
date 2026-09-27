@@ -80,11 +80,57 @@ def _barcode(raw: dict[str, Any]) -> str | None:
 
 
 def _event_description(event: dict[str, Any]) -> str | None:
-    """Pick the English description, falling back to whatever came back."""
+    """Pick the English description, falling back to whatever came back.
+
+    ``eventDescription`` is a list of ``{lang, value}``, one per language.
+    """
     description = event.get("eventDescription")
-    if not isinstance(description, dict):
+    if isinstance(description, dict):
+        description = [description]
+    if not isinstance(description, list):
         return None
-    return description.get("value")
+    translations = [item for item in description if isinstance(item, dict)]
+    for item in translations:
+        if item.get("lang") == "en" and item.get("value"):
+            return item["value"]
+    return next((item["value"] for item in translations if item.get("value")), None)
+
+
+def _party(raw: dict[str, Any], role: str) -> str | None:
+    for party in raw.get("parties") or []:
+        if isinstance(party, dict) and party.get("role") == role:
+            name = party.get("name")
+            if isinstance(name, list):
+                name = ", ".join(part for part in name if isinstance(part, str) and part)
+            return name or None
+    return None
+
+
+def _pickup_point(raw: dict[str, Any]) -> str | None:
+    """Return the locker or counter, else the ``DELIVERY`` party."""
+    point = raw.get("pickupPoint")
+    if isinstance(point, dict) and point.get("lockerAddress"):
+        return point["lockerAddress"]
+    return _party(raw, "DELIVERY")
+
+
+def _weight_kg(raw: dict[str, Any]) -> float | None:
+    try:
+        return float(raw.get("grossWeight"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _delivered_at(events: list | None) -> str | None:
+    """Return the newest event's timestamp, whatever the list order."""
+    newest: tuple[datetime, str] | None = None
+    for event in events or []:
+        if not isinstance(event, dict):
+            continue
+        parsed = parse_iso(event.get("timestamp"))
+        if parsed is not None and (newest is None or parsed > newest[0]):
+            newest = (parsed, event["timestamp"])
+    return newest[1] if newest else None
 
 
 def build_history(
@@ -123,33 +169,33 @@ def build_history(
 
 
 def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = False) -> dict[str, Any]:
-    """Return the canonical shape, leaving every unproven account field empty.
+    """Return the canonical shape for one account shipment.
 
-    ``delivered_at``, ``planned_from``/``planned_to``, ``pickup_point``,
-    ``weight`` and ``dimensions`` all stay ``None`` — the minimal query this
-    source runs selects none of the fields that would populate them, and none
-    may be inferred from a plausible name.
+    OmaPosti gives no dimensions, so those stay ``None``.
     """
     status_code = raw.get("shipmentPhase")
     status = map_parcel_status(status_code)
     barcode = _barcode(raw)
+    delivered = status is ParcelStatus.DELIVERED
+    events = raw.get("events")
+    estimated = None if delivered else raw.get("estimatedDeliveryTime") or None
 
     return {
         "carrier": "Posti",
         "barcode": barcode,
-        "sender": None,
-        "receiver": None,
+        "sender": _party(raw, "CONSIGNOR"),
+        "receiver": _party(raw, "CONSIGNEE"),
         "status": status,
         "raw_status": status_code,
-        "delivered": status is ParcelStatus.DELIVERED,
-        "delivered_at": None,
-        "planned_from": None,
+        "delivered": delivered,
+        "delivered_at": _delivered_at(events) if delivered else None,
+        "planned_from": estimated,
         "planned_to": None,
         "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": None,
+        "pickup_point": _pickup_point(raw),
         "url": tracking_url(barcode),
-        "weight": None,
+        "weight": _weight_kg(raw),
         "dimensions": None,
-        "history": build_history(raw.get("events")) if include_history else None,
+        "history": build_history(events) if include_history else None,
         "raw": raw,
     }

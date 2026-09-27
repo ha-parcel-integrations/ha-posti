@@ -40,6 +40,12 @@ def returned_hit(code: str = TRACKING_CODE) -> dict:
         "displayId": code,
         "shipmentType": "PARCEL",
         "status": {"main": "RETURN_DELIVERED", "subStatus": []},
+        "measurements": {
+            "weight": {"unit": "kg", "value": "0.1"},
+            "height": {"unit": "cm", "value": "10.5"},
+            "width": {"unit": "cm", "value": "18.5"},
+            "length": {"unit": "cm", "value": "34.5"},
+        },
         "events": [
             event("2026-06-09T07:18:42.000Z", "The item has been delivered"),
             event("2026-06-09T07:18:42.000Z", "No digital signature was received.", "ESPOO"),

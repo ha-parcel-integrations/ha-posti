@@ -35,12 +35,14 @@ KNOWN_CAPABILITIES = frozenset(
     {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
 )
 
-# Neither source has an ETA field or weight/dimensions. Only the tracking
-# route names the pickup point (on its ready-for-pickup event); the account
-# query selects no field that would. Keep in sync with each normalizer.
+# Only the tracking route reports dimensions. Neither claims delivery_window:
+# the tracking route's delivery.time has only been seen null, and the account
+# route gives a single estimate. Keep in sync with each normalizer.
 CAPABILITIES_BY_VARIANT = {
-    "Tracking": frozenset({"pickup_point", "url", "history"}),
-    "Account": frozenset({"url", "history"}),
+    "Tracking": frozenset(
+        {"weight", "dimensions", "pickup_point", "url", "history"}
+    ),
+    "Account": frozenset({"weight", "pickup_point", "url", "history"}),
 }
 CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]
 

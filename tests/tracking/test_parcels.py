@@ -49,7 +49,7 @@ def test_barcode_comes_from_the_tracked_code_not_the_payload():
     assert parcel["barcode"] == TRACKING_CODE
 
 
-def test_no_confirmed_field_ever_populates_eta_weight_or_dimensions():
+def test_letter_without_measurements_has_no_eta_weight_or_dimensions():
     parcel = parcels.normalize_parcel(delivered_hit(), tracking_code=TRACKING_CODE)
     assert parcel["planned_from"] is None
     assert parcel["planned_to"] is None
@@ -58,6 +58,97 @@ def test_no_confirmed_field_ever_populates_eta_weight_or_dimensions():
     assert parcel["pickup_point"] is None
     assert parcel["sender"] is None
     assert parcel["receiver"] is None
+
+
+def test_measurements_map_to_weight_and_dimensions():
+    parcel = parcels.normalize_parcel(returned_hit(), tracking_code=TRACKING_CODE)
+    assert parcel["weight"] == 0.1
+    assert parcel["dimensions"] == {
+        "length": 34.5,
+        "width": 18.5,
+        "height": 10.5,
+        "text": "34 x 18 x 10 cm",
+    }
+
+
+def test_measurements_in_other_units_are_converted():
+    hit = returned_hit()
+    hit["measurements"] = {
+        "weight": {"unit": "g", "value": "250"},
+        "length": {"unit": "m", "value": "0.3"},
+        "width": {"unit": "mm", "value": "200"},
+        "height": {"unit": "cm", "value": "10"},
+    }
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["weight"] == 0.25
+    assert parcel["dimensions"]["text"] == "30 x 20 x 10 cm"
+
+
+def test_incomplete_or_unknown_measurements_stay_none():
+    hit = returned_hit()
+    hit["measurements"] = {
+        "weight": {"unit": "lb", "value": "1"},
+        "length": {"unit": "cm", "value": "30"},
+        "width": None,
+        "height": {"unit": "cm", "value": "x"},
+    }
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["weight"] is None
+    assert parcel["dimensions"] is None
+
+
+def test_pickup_point_falls_back_to_the_pickup_point_block():
+    hit = unknown_status_hit()
+    hit["pickupPoint"] = {"address": {"publicName": "Posti, Example Kiosk"}}
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["pickup_point"] == "Posti, Example Kiosk"
+
+
+def test_ready_for_pickup_event_wins_over_the_pickup_point_block():
+    hit = returned_hit()
+    hit["pickupPoint"] = {"address": {"publicName": "Posti, Example Kiosk"}}
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["pickup_point"] == "Parcel locker, Example Store"
+
+
+def test_receiver_joins_the_destination_name():
+    hit = unknown_status_hit()
+    hit["delivery"] = {"destination": {"name": ["Example", "Recipient"]}}
+    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"] == "Example, Recipient"
+    hit["delivery"] = {"destination": {"name": []}}
+    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"] is None
+
+
+def test_delivery_time_fills_the_planned_window_and_warns_once(caplog):
+    hit = unknown_status_hit()
+    hit["delivery"] = {
+        "time": {
+            "type": "ESTIMATE",
+            "timestamp": "2026-05-03T08:00:00.000Z",
+            "timestampLatest": "2026-05-03T12:00:00.000Z",
+        }
+    }
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["planned_from"] == "2026-05-03T08:00:00.000Z"
+    assert parcel["planned_to"] == "2026-05-03T12:00:00.000Z"
+    assert "delivery.time.type=ESTIMATE" in caplog.text
+
+    caplog.clear()
+    parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert "delivery.time" not in caplog.text
+
+
+def test_delivery_time_without_latest_is_a_point_estimate():
+    hit = unknown_status_hit()
+    hit["delivery"] = {"time": {"type": "X", "timestamp": "2026-05-03T08:00:00.000Z"}}
+    parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
+    assert parcel["planned_to"] is None
+
+
+def test_delivered_parcel_drops_the_planned_window():
+    hit = delivered_hit()
+    hit["delivery"] = {"time": {"type": "X", "timestamp": "2026-05-03T08:00:00.000Z"}}
+    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["planned_from"] is None
 
 
 def test_history_is_reversed_to_oldest_first():

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from urllib.parse import quote
 
 from homeassistant.config_entries import ConfigEntry
@@ -60,6 +61,7 @@ EVENT_STATUS_MAP: dict[str, ParcelStatus | None] = {
 
 _unmapped_statuses_logged: set[str] = set()
 _unmapped_events_logged: set[str] = set()
+_delivery_time_types_logged: set[str] = set()
 
 
 def _warn_unmapped_status(code: str) -> None:
@@ -189,10 +191,13 @@ def _delivered_at(events: list | None) -> str | None:
     return newest.get("timestamp")
 
 
-def _pickup_point(events: list | None) -> str | None:
-    """Return where the parcel waited: the newest ready-for-pickup event's ``city``.
+def _pickup_point(events: list | None, point: Any) -> str | None:
+    """Return where the parcel waits or waited.
 
-    On that event Posti puts the pickup point's name in ``city``.
+    The newest ready-for-pickup event's ``city`` (Posti puts the pickup
+    point's name there) wins: on a returned parcel ``pickupPoint`` was seen
+    still naming a different, earlier point than the one the parcel actually
+    waited at. Before that event, ``pickupPoint`` is all there is.
     """
     for event in events or []:
         if (
@@ -200,7 +205,88 @@ def _pickup_point(events: list | None) -> str | None:
             and _event_key(event.get("eventDescription")) == "item is ready for a pick up"
         ):
             return event.get("city") or None
+    address = point.get("address") if isinstance(point, dict) else None
+    if isinstance(address, dict):
+        return address.get("publicName") or None
     return None
+
+
+def _receiver(delivery: dict) -> str | None:
+    destination = delivery.get("destination")
+    if not isinstance(destination, dict):
+        return None
+    name = destination.get("name")
+    if isinstance(name, list):
+        name = ", ".join(part for part in name if isinstance(part, str) and part)
+    return name or None
+
+
+def _planned(delivery: dict) -> tuple[str | None, str | None]:
+    """Return ``(planned_from, planned_to)`` from ``delivery.time``.
+
+    Only ever seen as ``null``, so the window reading of ``timestamp`` /
+    ``timestampLatest`` is a guess; each new ``type`` warns once.
+    """
+    time = delivery.get("time")
+    if not isinstance(time, dict) or not time.get("timestamp"):
+        return None, None
+    kind = str(time.get("type"))
+    if kind not in _delivery_time_types_logged:
+        _delivery_time_types_logged.add(kind)
+        _LOGGER.warning(
+            "Posti sent a delivery time we have not seen before — help us confirm "
+            "it. Open an issue and paste this line: %s\n  delivery.time.type=%s, "
+            "has timestampLatest=%s",
+            NEW_ISSUE_URL,
+            kind,
+            bool(time.get("timestampLatest")),
+        )
+    return time["timestamp"], time.get("timestampLatest") or None
+
+
+def _quantity(quantity: Any, factors: dict[str, float]) -> float | None:
+    """Convert a ``{"unit": ..., "value": "0.1"}`` measurement using ``factors``."""
+    if not isinstance(quantity, dict):
+        return None
+    factor = factors.get(str(quantity.get("unit")).lower())
+    try:
+        value = float(quantity.get("value"))
+    except (TypeError, ValueError):
+        return None
+    return value * factor if factor is not None else None
+
+
+def _weight_kg(measurements: dict) -> float | None:
+    return _quantity(measurements.get("weight"), {"kg": 1, "g": 0.001})
+
+
+def format_dimensions(
+    length: float | None, width: float | None, height: float | None
+) -> dict[str, Any] | None:
+    """Return the canonical ``dimensions`` dict, or ``None`` when incomplete.
+
+    Units contract: **centimetres**, with ``text`` pre-formatted as
+    ``"L x W x H cm"`` (integer values, lowercase ``x``).
+    """
+    if length is None or width is None or height is None:
+        return None
+    return {
+        "length": length,
+        "width": width,
+        "height": height,
+        "text": f"{int(length)} x {int(width)} x {int(height)} cm",
+    }
+
+
+def _dimensions_cm(measurements: dict) -> dict[str, Any] | None:
+    factors = {"m": 100, "cm": 1, "mm": 0.1}
+    axes = [
+        _quantity(measurements.get(axis), factors)
+        for axis in ("length", "width", "height")
+    ]
+    if any(axis is None for axis in axes):
+        return None
+    return format_dimensions(*(round(axis, 1) for axis in axes))
 
 
 def normalize_parcel(
@@ -210,32 +296,33 @@ def normalize_parcel(
 
     ``tracking_code`` is the tracked code itself — never read from ``raw``,
     since a not-yet-found lookup carries no echoed identifier at all. No
-    field on this route gives a delivery time, an ETA window, a
-    sender/receiver name, a product name, a weight or a dimension — every one
-    of those stays ``None`` structurally, not by omission.
+    field on this route names the sender.
     """
     status_block = raw.get("status") or {}
     status_code = status_block.get("main")
     status = map_parcel_status(status_code)
     delivered = status is ParcelStatus.DELIVERED
     events = raw.get("events")
+    measurements = raw.get("measurements") or {}
+    delivery = raw.get("delivery") if isinstance(raw.get("delivery"), dict) else {}
+    planned_from, planned_to = (None, None) if delivered else _planned(delivery)
 
     return {
         "carrier": "Posti",
         "barcode": tracking_code,
         "sender": None,
-        "receiver": None,
+        "receiver": _receiver(delivery),
         "status": status,
         "raw_status": status_code,
         "delivered": delivered,
         "delivered_at": _delivered_at(events) if delivered else None,
-        "planned_from": None,
-        "planned_to": None,
+        "planned_from": planned_from,
+        "planned_to": planned_to,
         "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": _pickup_point(events),
+        "pickup_point": _pickup_point(events, raw.get("pickupPoint")),
         "url": tracking_url(tracking_code),
-        "weight": None,
-        "dimensions": None,
+        "weight": _weight_kg(measurements),
+        "dimensions": _dimensions_cm(measurements),
         "history": build_history(events) if include_history else None,
         "raw": raw,
     }

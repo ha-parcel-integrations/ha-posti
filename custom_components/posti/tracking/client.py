@@ -28,16 +28,130 @@ query ConsumerSearchShipments($code: String!) {
   ) {
     totalHits
     hits {
-      displayId
+      shipmentId
       shipmentType
+      userRole
+      displayId
+      displayName
+      references { type reference }
+      delivery {
+        method
+        signatureRequired
+        result
+        information { arrivalAnnouncement }
+        time { type timestamp timestampLatest }
+        destination { name street postcode city }
+      }
+      pickupPoint {
+        type
+        lastCollectionDate
+        codPayableOnLocation
+        status
+        pupCode
+        pickupDetails {
+          identification
+          pickupMethod
+          pinCode
+          lockerId
+          shelfId
+          itemId
+        }
+        address {
+          streetAddress
+          specificLocation
+          postcode
+          city
+          publicName
+        }
+        openingHours {
+          closed
+          open24h
+          opens
+          closes
+          dayOfWeek
+          validFrom
+          validThrough
+        }
+        exceptions {
+          closed
+          open24h
+          opens
+          closes
+          validFrom
+          validThrough
+        }
+      }
+      dropOffPoint {
+        type
+        pupCode
+        address {
+          streetAddress
+          specificLocation
+          postcode
+          city
+          publicName
+        }
+        openingHours {
+          closed
+          open24h
+          opens
+          closes
+          dayOfWeek
+          validFrom
+          validThrough
+        }
+        exceptions {
+          closed
+          open24h
+          opens
+          closes
+          validFrom
+          validThrough
+        }
+        sendingDetails {
+          method
+          pinCode
+          lockerId
+          errandCode
+          reservationExpiration { earliest latest }
+        }
+      }
+      payments { type amount currency paid }
       status {
+        account
+        activeServices { type }
         main
         subStatus
+        exception
+        redirectionReason
+      }
+      callToAction { type url actionTarget }
+      additionalActions { type url actionTarget }
+      measurements {
+        size
+        weight { unit value }
+        height { unit value }
+        width { unit value }
+        length { unit value }
+        volume { unit value }
+        packageQuantity { unit value }
+        loadingMeters { unit value }
+        freightWeight { unit value }
       }
       events {
-        timestamp
-        eventDescription
         city
+        eventDescription
+        reasonDescription
+        timestamp
+      }
+      packages {
+        trackingNumber
+        events {
+          city
+          eventDescription
+          reasonDescription
+          timestamp
+        }
       }
     }
   }

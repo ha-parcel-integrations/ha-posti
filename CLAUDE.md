@@ -123,10 +123,12 @@ its normal reauth flow (re-asking only the password, keeping the same
 unique ID). The whole seven-literal `shipmentPhase` map in
 `account/parcels.py` is a **hypothesis**, not a fixture — none of the seven
 literals has been seen on a real account response, every literal is behind
-the one-shot warning net, `delivered_at`/`planned_from`/`planned_to`/
-`weight`/`dimensions`/`pickup_point` all stay `None` structurally (the
-minimal query selects none of the fields that would populate them), and
-account polling never suspends (one batched call, fixed
+the one-shot warning net. Never add a field to the account query that
+isn't proven to exist — an unknown field fails the whole GraphQL query, and
+the account schema can't be probed without an account. `eventDescription` is a list of
+`{lang, value}` (English preferred). OmaPosti has no dimensions, and
+`estimatedDeliveryTime` is a point estimate, so `planned_to` stays `None`.
+Account polling never suspends (one batched call, fixed
 `MID_INTERVAL_MINUTES` cadence, `delivered_codes` always empty).
 **This is why the release is 0.x, not 1.0** — promote only once a real
 account confirms the envelope, event order and status literals.
@@ -137,11 +139,17 @@ code in the path, and the older `/fi/seuranta#/lahetys/{code}` link redirects
 to it. An account parcel without a tracking number falls back to its
 shipment number, which has not been confirmed to resolve on that page.
 
-**No weight, dimensions or ETA window on either source; only the tracking
-route names a pickup point** (`CAPABILITIES_BY_VARIANT`). The tracking route
-structurally cannot supply the rest (every plausible field name was checked
-and does not exist); the account route's minimal query deliberately does not
-select the fields that would. `pickup` is only ever `True` exactly when
+**`raw` is the full record on both sources** — the tracking query is the
+website's own `ShipmentDetails` fragment, the account query every known
+account field; privacy lives in `diagnostics.py`'s `TO_REDACT` (pickup codes, pin
+codes, addresses, names), never in a trimmed query. Weight comes from both
+sources, dimensions only from tracking's `measurements` (`{unit, value}`,
+`value` a string). Tracking's `pickup_point` prefers the ready-for-pickup
+event's `city` over `pickupPoint.address.publicName`: on a returned parcel
+the block still named an earlier point than the one it waited at.
+`delivery.time` maps to `planned_from`/`planned_to` with a one-shot warning
+per `type` — it has only ever been seen `null`, so `delivery_window` is not
+claimed in `CAPABILITIES_BY_VARIANT`. `pickup` is only ever `True` exactly when
 `status == AT_PICKUP_POINT`, and no `status.main` literal for a waiting parcel
 has been seen yet, so there is no `en_route_to_pickup_point` sensor — it
 would be permanently zero by construction.

@@ -23,9 +23,17 @@ _SHIPMENTS_QUERY = """
 query GetShipments {
   shipment {
     shipmentNumber
+    parties {
+      name
+      role
+    }
+    departure {
+      city
+    }
+    destination {
+      city
+    }
     trackingNumbers
-    shipmentPhase
-    savedDateTime
     events {
       timestamp
       eventDescription {
@@ -35,6 +43,23 @@ query GetShipments {
       eventLocation {
         city
         country
+      }
+    }
+    shipmentPhase
+    savedDateTime
+    estimatedDeliveryTime
+    grossWeight
+    packageQuantity
+    pickupPoint {
+      type
+      lockerAddress
+      lockerCode
+      pupCode
+      availabilityTime
+      location {
+        street1
+        postCode
+        city
       }
     }
   }

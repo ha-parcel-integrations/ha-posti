@@ -23,6 +23,7 @@ def reset_one_shot_warnings():
     from custom_components.posti.tracking import parcels as tracking_parcels
 
     tracking_parcels._unmapped_statuses_logged.clear()
+    tracking_parcels._delivery_time_types_logged.clear()
     account_parcels._unmapped_statuses_logged.clear()
     yield
 

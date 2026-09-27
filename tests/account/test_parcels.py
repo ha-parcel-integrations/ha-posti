@@ -4,7 +4,7 @@ from __future__ import annotations
 from custom_components.posti.account import parcels
 from custom_components.posti.const import ParcelStatus
 
-from .payloads import SHIPMENT_NUMBER, TRACKING_NUMBER, shipment
+from .payloads import SHIPMENT_NUMBER, TRACKING_NUMBER, full_shipment, shipment
 
 
 def test_maps_every_documented_phase():
@@ -50,8 +50,8 @@ def test_ready_for_pickup_sets_pickup_flag():
     assert parcel["pickup_point"] is None
 
 
-def test_no_field_populates_eta_weight_dimensions_or_delivered_at():
-    parcel = parcels.normalize_account_parcel(shipment("DELIVERED"))
+def test_minimal_shipment_leaves_optional_fields_empty():
+    parcel = parcels.normalize_account_parcel(shipment("IN_TRANSPORT"))
     assert parcel["delivered_at"] is None
     assert parcel["planned_from"] is None
     assert parcel["planned_to"] is None
@@ -59,6 +59,44 @@ def test_no_field_populates_eta_weight_dimensions_or_delivered_at():
     assert parcel["dimensions"] is None
     assert parcel["sender"] is None
     assert parcel["receiver"] is None
+
+
+def test_full_shipment_maps_parties_weight_eta_and_pickup_point():
+    parcel = parcels.normalize_account_parcel(full_shipment())
+    assert parcel["sender"] == "Example Shop Oy"
+    assert parcel["receiver"] == "Example Recipient"
+    assert parcel["weight"] == 1.25
+    assert parcel["planned_from"] == "2026-05-03T12:00:00.000Z"
+    assert parcel["planned_to"] is None
+    assert parcel["pickup_point"] == "Example Store, Parcel locker"
+    assert parcel["dimensions"] is None
+
+
+def test_locker_address_is_preferred_as_pickup_point():
+    raw = full_shipment("READY_FOR_PICKUP")
+    raw["pickupPoint"] = {"type": "LOCKER", "lockerAddress": "Parcel locker, Example Store"}
+    parcel = parcels.normalize_account_parcel(raw)
+    assert parcel["pickup_point"] == "Parcel locker, Example Store"
+
+
+def test_delivered_uses_newest_event_and_drops_the_eta():
+    parcel = parcels.normalize_account_parcel(full_shipment("DELIVERED"))
+    assert parcel["delivered_at"] == "2026-05-02T10:00:00.000Z"
+    assert parcel["planned_from"] is None
+
+
+def test_unparseable_weight_stays_none():
+    raw = full_shipment()
+    raw["grossWeight"] = "n/a"
+    assert parcels.normalize_account_parcel(raw)["weight"] is None
+
+
+def test_event_description_prefers_english_then_any_language():
+    raw = shipment()
+    raw["events"][0]["eventDescription"] = [{"lang": "fi", "value": "Ilmoitettu"}]
+    history = parcels.build_history(raw["events"])
+    assert history[0]["raw_status"] == "Ilmoitettu"
+    assert history[1]["raw_status"] == "At the terminal"
 
 
 def test_history_is_none_when_option_is_off():
