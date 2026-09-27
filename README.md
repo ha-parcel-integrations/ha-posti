@@ -10,7 +10,7 @@
 A custom Home Assistant integration that tracks your [Posti](https://www.posti.fi/) (Finland) parcels and packages, either by tracking code or through your OmaPosti account. Choose one source when you add the integration:
 
 - **Tracking codes** — no account needed, just the tracking code from your shipping confirmation or missed-delivery card.
-- **OmaPosti account** — sign in once and every parcel in your account inbox is discovered automatically. **Pre-release (0.x):** the account payload is not yet confirmed against a real inbox — see [Disclaimer](#disclaimer).
+- **OmaPosti account** — sign in once and every parcel in your account inbox is discovered automatically. Not yet tried on a real account — see the [open questions](https://github.com/ha-parcel-integrations/ha-posti/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) if you can help confirm it.
 
 Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
@@ -189,7 +189,7 @@ All third-party trademarks, trade names, product names, logos, and other brand a
 
 This integration may rely on public, unofficial, or undocumented carrier interfaces, accessed with your own account or tracking code where required. These may change or be withdrawn without notice and may be subject to Posti's terms. Data is sent only to Posti's own services; this project operates no servers of its own. You are responsible for ensuring that your use complies with applicable law and those terms. Use is at your own risk; see the [licence](LICENSE) for warranty limitations.
 
-The tracking-code source uses the same keyless, anonymous-token public endpoint as the Posti consumer tracking website; its transport, envelope and the `DELIVERED` and `RETURN_DELIVERED` statuses are confirmed against real parcels, but the rest of the public status vocabulary is not yet confirmed. **The OmaPosti account source is pre-release (0.x)**: it emulates the OmaPosti Android app's login sequence rather than a published API, and its shipment payload, event ordering and all seven status literals remain unconfirmed against a real account inbox. Both sources log an `unrecognised status` warning the first time they see something they cannot map — please [open an issue](https://github.com/ha-parcel-integrations/ha-posti/issues/new) if you see one, so the mapping can be confirmed and extended.
+This integration uses the same public tracking endpoint as the Posti consumer website, and the OmaPosti account option signs in the way the OmaPosti app does.
 
 ## Contributing
 
