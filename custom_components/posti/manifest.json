@@ -2,7 +2,7 @@
   "domain": "posti",
   "name": "Posti",
   "codeowners": [
-    "@peternijssen"
+    "@peter-mdf"
   ],
   "config_flow": true,
   "documentation": "https://github.com/ha-parcel-integrations/ha-posti",
