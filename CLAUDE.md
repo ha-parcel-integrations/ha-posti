@@ -108,11 +108,10 @@ session's jar would carry one account's session into the next sign-in.
 When the code only arrives on the success page's auto-submitting form, the
 form's callback is visited first (as the WebView would) and the code from the
 redirect to `LOGIN_REDIRECT_URI` wins — that redirect is the only place the
-app itself reads a code. Refresh uses the app's `refresh_v2` over the legacy
-`token_v2` route, sent exactly as the app sends it: **the id token** (not
-the refresh token) as `Authorization: Bearer`, the refresh token unencoded
-in the form body. The APK declares `refresh_v2/ack` but never calls it, so
-neither does this — don't add it back. Only an auth-typed GraphQL error
+app itself reads a code. Refresh uses `refresh_v2` over the legacy
+`token_v2` route: **the id token** (not the refresh token) as
+`Authorization: Bearer`, the refresh token unencoded in the form body.
+`refresh_v2/ack` exists but is deliberately never called — don't add it back. Only an auth-typed GraphQL error
 (`errorType` starting with `Unauthorized`) triggers refresh/reauth; any other
 error is an `UpdateFailed`, so a schema change never forces a sign-in loop.
 Accounts with two-step verification are unconfirmed: the password step then
