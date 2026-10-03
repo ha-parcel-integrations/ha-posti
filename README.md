@@ -149,6 +149,13 @@ An OmaPosti account entry does not register these services — its parcels come 
 
 Ready-to-paste automations and dashboard snippets live in [`examples/`](examples/), including tracking a new parcel straight from a dashboard.
 
+### Community Lovelace cards
+
+Third-party cards that work with this integration's sensors:
+
+- [jonisnet/hki-parcels-card](https://github.com/jonisnet/hki-parcels-card)
+- [klaptafel/ha-package-tracker-card](https://github.com/klaptafel/ha-package-tracker-card)
+
 ## Debugging
 
 ```yaml
@@ -162,7 +169,7 @@ logger:
 - **A parcel shows `unknown`** — on the tracking-code route this is normal until Posti's public tracker maps that particular status; on an OmaPosti account it means that shipment phase hasn't been confirmed yet. Either way it will resolve itself once the parcel reaches a confirmed status (`delivered`, at least).
 - **A status logs "Unrecognised Posti … status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posti/issues/new) with the logged line so the mapping can be extended.
 - **`next_delivery` is always empty, and there is no delivery-window field anywhere** — this is not a bug. Posti's public tracking API has no delivery-time field at all, and the OmaPosti account query deliberately does not select one either (neither route has confirmed what it would mean). `delivered_at` is derived instead, from the newest tracking-code event, only once a parcel is `delivered`.
-- **OmaPosti sign-in fails, or stops working after a while** — the account source emulates the OmaPosti Android app's login sequence rather than using a published API; if Posti changes that app's login flow this can break until the integration is updated. A rejected refresh triggers Home Assistant's normal reauthentication flow — just re-enter your password.
+- **OmaPosti sign-in fails, or stops working after a while** — the account source relies on the OmaPosti sign-in rather than a published API; if Posti changes that sign-in this can break until the integration is updated. A rejected refresh triggers Home Assistant's normal reauthentication flow — just re-enter your password.
 
 ## Related integrations
 
@@ -173,13 +180,6 @@ statuses and events.
 - [**Parcel Aggregator**](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) rolls every installed carrier
   up into one set of sensors.
 - Browse [the organisation](https://ha-parcel-integrations.github.io/) for the current list of supported carriers.
-
-### Community Lovelace cards
-
-Third-party cards that work with this integration's sensors:
-
-- [jonisnet/hki-parcels-card](https://github.com/jonisnet/hki-parcels-card)
-- [klaptafel/ha-package-tracker-card](https://github.com/klaptafel/ha-package-tracker-card)
 
 ## Disclaimer
 
