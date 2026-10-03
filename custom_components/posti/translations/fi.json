@@ -71,7 +71,7 @@
     "delivered_filter_type": {
       "options": {
         "days": "Päivää",
-        "parcels": "Lähetysten määrä"
+        "parcels": "Pakettien määrä"
       }
     }
   },
@@ -118,25 +118,25 @@
     },
     "sensor": {
       "incoming_parcels": {
-        "name": "Saapuvat lähetykset",
-        "unit_of_measurement": "lähetystä"
+        "name": "Saapuvat paketit",
+        "unit_of_measurement": "pakettia"
       },
       "next_delivery": {
         "name": "Seuraava toimitus"
       },
       "awaiting_pickup": {
-        "name": "Noudettavissa",
-        "unit_of_measurement": "lähetystä"
+        "name": "Valmis noudettavaksi",
+        "unit_of_measurement": "pakettia"
       },
       "delivered_parcels": {
-        "name": "Toimitetut lähetykset",
-        "unit_of_measurement": "lähetystä"
+        "name": "Toimitetut paketit",
+        "unit_of_measurement": "pakettia"
       },
       "last_update": {
         "name": "Viimeisin onnistunut päivitys"
       },
       "parcel": {
-        "name": "Lähetys {barcode}"
+        "name": "Paketti {barcode}"
       }
     }
   }
