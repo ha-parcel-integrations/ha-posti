@@ -44,6 +44,12 @@ CAPABILITIES_BY_VARIANT = {
     ),
     "Account": frozenset({"weight", "pickup_point", "url", "history"}),
 }
+
+# Fields not confirmed yet — the docs site shows them as "awaiting data".
+# Move a field into the declaration above once a real parcel shows it.
+PENDING_CAPABILITIES_BY_VARIANT = {
+    "Account": frozenset({"delivery_window"}),
+}
 CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]
 
 # The legacy ``/fi/seuranta#/lahetys/{code}`` link redirects here.
