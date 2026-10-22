@@ -113,6 +113,8 @@ def _next_update_interval(
 class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
     """Polls each tracked code and publishes the canonical parcel lists."""
 
+    config_entry: ConfigEntry
+
     def __init__(
         self,
         hass: HomeAssistant,

@@ -19,15 +19,18 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PostiConfigEntry
+from .account.coordinator import PostiAccountCoordinator
 from .const import DOMAIN, ParcelStatus
 from .device import ATTRIBUTION, build_device_info
-from .tracking.coordinator import PostiTrackingCoordinator as PostiCoordinator
+from .tracking.coordinator import PostiTrackingCoordinator
 from .tracking.parcels import parse_iso
 
 _LOGGER = logging.getLogger(__name__)
 
 # The DataUpdateCoordinator handles fan-out to all entities; HA's per-entity
 # update throttling adds nothing here.
+PostiCoordinator = PostiTrackingCoordinator | PostiAccountCoordinator
+
 PARALLEL_UPDATES = 0
 
 
@@ -241,11 +244,15 @@ class _PostiPickupListSensor(CoordinatorEntity[PostiCoordinator], SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_attribution = ATTRIBUTION
     _unrecorded_attributes = frozenset({"parcels"})
+    _suffix: str
 
     def __init__(self, coordinator: PostiCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_{self._suffix}"
         self._attr_device_info = build_device_info(entry)
+
+    def _parcels(self) -> list[dict]:
+        raise NotImplementedError
 
     @property
     def native_value(self) -> int:

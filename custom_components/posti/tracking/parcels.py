@@ -251,8 +251,11 @@ def _quantity(quantity: Any, factors: dict[str, float]) -> float | None:
     if not isinstance(quantity, dict):
         return None
     factor = factors.get(str(quantity.get("unit")).lower())
+    raw_value = quantity.get("value")
+    if raw_value is None:
+        return None
     try:
-        value = float(quantity.get("value"))
+        value = float(raw_value)
     except (TypeError, ValueError):
         return None
     return value * factor if factor is not None else None
@@ -286,9 +289,10 @@ def _dimensions_cm(measurements: dict) -> dict[str, Any] | None:
         _quantity(measurements.get(axis), factors)
         for axis in ("length", "width", "height")
     ]
-    if any(axis is None for axis in axes):
+    rounded = [round(axis, 1) for axis in axes if axis is not None]
+    if len(rounded) != len(axes):
         return None
-    return format_dimensions(*(round(axis, 1) for axis in axes))
+    return format_dimensions(*rounded)
 
 
 def normalize_parcel(
@@ -306,7 +310,8 @@ def normalize_parcel(
     delivered = status is ParcelStatus.DELIVERED
     events = raw.get("events")
     measurements = raw.get("measurements") or {}
-    delivery = raw.get("delivery") if isinstance(raw.get("delivery"), dict) else {}
+    raw_delivery = raw.get("delivery")
+    delivery = raw_delivery if isinstance(raw_delivery, dict) else {}
     planned_from, planned_to = (None, None) if delivered else _planned(delivery)
 
     return {

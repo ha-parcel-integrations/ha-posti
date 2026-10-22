@@ -122,8 +122,11 @@ def _pickup_point(raw: dict[str, Any]) -> str | None:
 
 
 def _weight_kg(raw: dict[str, Any]) -> float | None:
+    gross_weight = raw.get("grossWeight")
+    if gross_weight is None:
+        return None
     try:
-        return float(raw.get("grossWeight"))
+        return float(gross_weight)
     except (TypeError, ValueError):
         return None
 

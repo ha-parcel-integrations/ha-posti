@@ -12,9 +12,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import PostiConfigEntry
+from .account.coordinator import PostiAccountCoordinator
 from .device import ATTRIBUTION, build_device_info
-from .tracking.coordinator import PostiTrackingCoordinator as PostiCoordinator
+from .tracking.coordinator import PostiTrackingCoordinator
 from .tracking.parcels import parse_iso
+
+PostiCoordinator = PostiTrackingCoordinator | PostiAccountCoordinator
 
 PARALLEL_UPDATES = 0
 

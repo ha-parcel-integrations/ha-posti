@@ -38,6 +38,8 @@ _LOGGER = logging.getLogger(__name__)
 class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
     """Refresh the full OmaPosti inbox at a fixed cadence."""
 
+    config_entry: ConfigEntry
+
     def __init__(
         self, hass: HomeAssistant, client: PostiAccountClient, entry: ConfigEntry
     ) -> None:

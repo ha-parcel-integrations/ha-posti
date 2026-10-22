@@ -42,6 +42,7 @@ type PostiConfigEntry = ConfigEntry[PostiData]
 async def async_setup_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> bool:
     """Set up Posti from a config entry."""
     is_account = entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT
+    client: PostiAccountClient | PostiTrackingClient
     if is_account:
 
         async def _async_store_tokens(tokens: dict[str, object]) -> None:
