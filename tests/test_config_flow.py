@@ -1,4 +1,5 @@
 """Tests for the Posti config and options flow."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -9,6 +10,7 @@ from custom_components.posti.account.auth import (
     PostiAccountInvalidCredentials,
 )
 from custom_components.posti.config_flow import (
+    PostiConfigFlow,
     normalize_tracking_code,
     normalize_username,
     valid_tracking_code,
@@ -148,8 +150,6 @@ async def test_account_flow_connection_error(hass):
 
 async def test_account_flow_blank_fields():
     """Covered without hitting the network: blank input never calls login."""
-    from custom_components.posti.config_flow import PostiConfigFlow
-
     flow = PostiConfigFlow()
     result = await flow.async_step_account({CONF_USERNAME: " ", "password": ""})
     assert result["errors"]["base"] == "invalid_auth"
@@ -281,7 +281,8 @@ async def test_options_changes_history_and_delivered_for_tracking(hass):
         hass, entry, "settings", expected_menu=["parcels", "settings"]
     )
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], _settings_input(history=True, filter_type="parcels", amount=5)
+        result["flow_id"],
+        _settings_input(history=True, filter_type="parcels", amount=5),
     )
     assert result["type"] == "create_entry"
     assert result["data"][CONF_INCLUDE_HISTORY] is True
@@ -292,7 +293,9 @@ async def test_options_changes_history_and_delivered_for_tracking(hass):
 async def test_options_changes_settings_for_account(hass):
     entry = _account_entry()
     entry.add_to_hass(hass)
-    result = await _open_options_step(hass, entry, "settings", expected_menu=["settings"])
+    result = await _open_options_step(
+        hass, entry, "settings", expected_menu=["settings"]
+    )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _settings_input(history=True)
     )

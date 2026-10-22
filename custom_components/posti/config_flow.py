@@ -7,7 +7,6 @@ import re
 from typing import Any
 
 import aiohttp
-import voluptuous as vol
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -17,6 +16,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+import voluptuous as vol
 
 from .account import auth
 from .account.auth import PostiAccountApiError, PostiAccountInvalidCredentials
@@ -182,9 +182,7 @@ class PostiConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Reauthenticate the fixed account; never silently change accounts."""
         self._reauth_entry = self._get_reauth_entry()
         return await self.async_step_reauth_confirm()

@@ -1,11 +1,12 @@
 """Tests for the OmaPosti account-inbox coordinator."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posti.account.auth import (
@@ -26,7 +27,10 @@ from .payloads import TRACKING_NUMBER, shipment
 def _entry() -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
-        options={CONF_DELIVERED_FILTER_TYPE: "parcels", CONF_DELIVERED_FILTER_AMOUNT: 100},
+        options={
+            CONF_DELIVERED_FILTER_TYPE: "parcels",
+            CONF_DELIVERED_FILTER_AMOUNT: 100,
+        },
         unique_id="account:jane",
     )
 

@@ -1,4 +1,5 @@
 """Tests for Posti diagnostics."""
+
 from datetime import timedelta
 from unittest.mock import MagicMock
 
@@ -21,7 +22,9 @@ async def test_diagnostics_redacts_and_counts(hass):
             "raw": {
                 "displayId": "JJFI00000000000001",
                 "status": {"main": "DELIVERED", "subStatus": []},
-                "events": [{"timestamp": "2026-01-01T00:00:00Z", "eventDescription": "x"}],
+                "events": [
+                    {"timestamp": "2026-01-01T00:00:00Z", "eventDescription": "x"}
+                ],
             },
         }
     ]
@@ -43,7 +46,9 @@ async def test_diagnostics_redacts_and_counts(hass):
     assert result["entry_options"]["parcels"][0]["tracking_code"] == "**REDACTED**"
     assert result["incoming"][0]["barcode"] == "**REDACTED**"
     assert result["incoming"][0]["raw"]["displayId"] == "**REDACTED**"
-    assert result["incoming"][0]["raw"]["events"][0]["eventDescription"] == "**REDACTED**"
+    assert (
+        result["incoming"][0]["raw"]["events"][0]["eventDescription"] == "**REDACTED**"
+    )
     assert result["incoming"][0]["status"] == "delivered"
 
 
@@ -54,7 +59,9 @@ async def test_diagnostics_redacts_account_entry_data():
         "username": "jane.doe",
         "id_token": "secret-id-token",
         "refresh_token": "secret-refresh-token",
-        "role_tokens": [{"type": "consumer", "token": "x", "email": "jane@example.com"}],
+        "role_tokens": [
+            {"type": "consumer", "token": "x", "email": "jane@example.com"}
+        ],
     }
     entry.options = {}
     entry.runtime_data.coordinator.current_tier_minutes = 45

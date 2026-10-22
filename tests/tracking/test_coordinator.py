@@ -1,10 +1,12 @@
 """Tests for the tracking-code coordinator: fetching, caching and events."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posti.const import (
@@ -183,7 +185,9 @@ async def test_delivered_code_forgotten_when_untracked(hass):
     await coordinator._async_update_data()
     assert coordinator.delivered_codes == {TRACKING_CODE}
 
-    hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_PARCELS: []})
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_PARCELS: []}
+    )
     await coordinator._async_update_data()
     assert coordinator.delivered_codes == set()
 
@@ -214,7 +218,9 @@ async def test_delivery_fires_delivered_event_and_not_status_changed(hass):
     delivered = []
     changed = []
     hass.bus.async_listen(f"{DOMAIN}_parcel_delivered", lambda e: delivered.append(e))
-    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: changed.append(e))
+    hass.bus.async_listen(
+        f"{DOMAIN}_parcel_status_changed", lambda e: changed.append(e)
+    )
 
     client.async_get_parcel.return_value = unknown_status_hit()
     await coordinator._async_update_data()
@@ -228,8 +234,6 @@ async def test_delivery_fires_delivered_event_and_not_status_changed(hass):
 
 
 async def test_event_carries_device_id(hass):
-    from homeassistant.helpers import device_registry as dr
-
     entry = _entry_with(_parcels(TRACKING_CODE))
     entry.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(

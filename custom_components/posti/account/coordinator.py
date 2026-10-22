@@ -3,10 +3,11 @@
 One batched inbox read per cycle — there is no per-parcel fetch to skip, so
 polling never suspends and ``delivered_codes`` stays empty by design.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -52,9 +53,9 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         self.delivered: list[dict] = []
         # None on the first refresh deliberately suppresses historical events.
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: (
-            dict[str, tuple[str | None, str | None]] | None
-        ) = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         self._cached_device_id: str | None = None
         self.last_success_time: datetime | None = None
         # Fixed cadence — an account inbox is one batched call with nothing
@@ -90,9 +91,7 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
     def _include_history(self) -> bool:
         """Whether the opt-in per-parcel history option is enabled."""
         return bool(
-            self.config_entry.options.get(
-                CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
-            )
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
         )
 
     async def _async_update_data(self) -> list[dict]:
@@ -123,10 +122,14 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         incoming = normalized_active + self.delivered
         device_id = self._device_id()
         fire_incoming_change_events(
-            self.hass, incoming, self._known_state, self._known_delivery_times, device_id
+            self.hass,
+            incoming,
+            self._known_state,
+            self._known_delivery_times,
+            device_id,
         )
         self._known_state = snapshot_states(incoming)
         self._known_delivery_times = snapshot_delivery_times(incoming)
 
-        self.last_success_time = datetime.now(timezone.utc)
+        self.last_success_time = datetime.now(UTC)
         return normalized_active

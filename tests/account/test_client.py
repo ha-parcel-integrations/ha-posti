@@ -1,4 +1,5 @@
 """Tests for the OmaPosti account GraphQL client."""
+
 from __future__ import annotations
 
 import base64
@@ -18,7 +19,9 @@ ROLE_TOKENS = [{"type": "consumer", "token": "consumer-token"}]
 
 
 def _jwt(exp: float) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).decode().rstrip("=")
+    )
     return f"header.{payload}.signature"
 
 
@@ -75,7 +78,7 @@ async def test_non_list_shipment_field_raises():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    with pytest.raises(Exception):
+    with pytest.raises(PostiAccountApiError):
         await client.async_get_shipments()
 
 
@@ -90,9 +93,15 @@ async def test_refreshes_proactively_when_close_to_expiry():
         role_tokens=ROLE_TOKENS,
         token_callback=callback,
     )
-    new_tokens = {"id_token": _fresh_id_token(), "refresh_token": "rt2", "role_tokens": ROLE_TOKENS}
+    new_tokens = {
+        "id_token": _fresh_id_token(),
+        "refresh_token": "rt2",
+        "role_tokens": ROLE_TOKENS,
+    }
     refresh = AsyncMock(return_value=new_tokens)
-    with patch("custom_components.posti.account.client.auth.async_refresh", new=refresh):
+    with patch(
+        "custom_components.posti.account.client.auth.async_refresh", new=refresh
+    ):
         await client.async_get_shipments()
     callback.assert_awaited_once_with(new_tokens)
     assert refresh.await_args.kwargs["id_token"] == expiring
@@ -106,7 +115,11 @@ async def test_401_triggers_one_refresh_and_retry():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    new_tokens = {"id_token": _fresh_id_token(), "refresh_token": "rt2", "role_tokens": ROLE_TOKENS}
+    new_tokens = {
+        "id_token": _fresh_id_token(),
+        "refresh_token": "rt2",
+        "role_tokens": ROLE_TOKENS,
+    }
     with patch(
         "custom_components.posti.account.client.auth.async_refresh",
         new=AsyncMock(return_value=new_tokens),
@@ -120,13 +133,19 @@ async def test_second_rejection_raises_reauth_required():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    new_tokens = {"id_token": _fresh_id_token(), "refresh_token": "rt2", "role_tokens": ROLE_TOKENS}
-    with patch(
-        "custom_components.posti.account.client.auth.async_refresh",
-        new=AsyncMock(return_value=new_tokens),
+    new_tokens = {
+        "id_token": _fresh_id_token(),
+        "refresh_token": "rt2",
+        "role_tokens": ROLE_TOKENS,
+    }
+    with (
+        patch(
+            "custom_components.posti.account.client.auth.async_refresh",
+            new=AsyncMock(return_value=new_tokens),
+        ),
+        pytest.raises(PostiAccountReauthRequired),
     ):
-        with pytest.raises(PostiAccountReauthRequired):
-            await client.async_get_shipments()
+        await client.async_get_shipments()
 
 
 async def test_no_refresh_token_raises_reauth_required():
@@ -138,7 +157,9 @@ async def test_no_refresh_token_raises_reauth_required():
 
 
 async def test_non_auth_graphql_error_is_an_api_error_not_reauth():
-    session = _session([_resp(200, {"data": None, "errors": [{"message": "Cannot query field"}]})])
+    session = _session(
+        [_resp(200, {"data": None, "errors": [{"message": "Cannot query field"}]})]
+    )
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
@@ -155,14 +176,20 @@ async def test_non_auth_graphql_error_is_an_api_error_not_reauth():
 async def test_unauthorized_graphql_error_triggers_refresh_path():
     session = _session(
         [
-            _resp(200, {"data": None, "errors": [{"errorType": "UnauthorizedException"}]}),
+            _resp(
+                200, {"data": None, "errors": [{"errorType": "UnauthorizedException"}]}
+            ),
             _resp(200, {"data": {"shipment": []}}),
         ]
     )
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    new_tokens = {"id_token": _fresh_id_token(), "refresh_token": "rt2", "role_tokens": ROLE_TOKENS}
+    new_tokens = {
+        "id_token": _fresh_id_token(),
+        "refresh_token": "rt2",
+        "role_tokens": ROLE_TOKENS,
+    }
     with patch(
         "custom_components.posti.account.client.auth.async_refresh",
         new=AsyncMock(return_value=new_tokens),
@@ -171,13 +198,15 @@ async def test_unauthorized_graphql_error_triggers_refresh_path():
 
 
 async def test_missing_consumer_role_token_triggers_unauthorized_path():
-    session = _session(
-        [_resp(200, {"data": {"shipment": [{"shipmentNumber": "S1"}]}})]
-    )
+    session = _session([_resp(200, {"data": {"shipment": [{"shipmentNumber": "S1"}]}})])
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=[]
     )
-    new_tokens = {"id_token": _fresh_id_token(), "refresh_token": "rt2", "role_tokens": ROLE_TOKENS}
+    new_tokens = {
+        "id_token": _fresh_id_token(),
+        "refresh_token": "rt2",
+        "role_tokens": ROLE_TOKENS,
+    }
     with patch(
         "custom_components.posti.account.client.auth.async_refresh",
         new=AsyncMock(return_value=new_tokens),
@@ -198,8 +227,6 @@ async def test_unparseable_body_raises_api_error():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    from custom_components.posti.account.auth import PostiAccountApiError
-
     with pytest.raises(PostiAccountApiError):
         await client.async_get_shipments()
 
@@ -209,8 +236,6 @@ async def test_non_object_body_raises_api_error():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    from custom_components.posti.account.auth import PostiAccountApiError
-
     with pytest.raises(PostiAccountApiError):
         await client.async_get_shipments()
 
@@ -220,8 +245,6 @@ async def test_missing_data_without_errors_raises_api_error():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    from custom_components.posti.account.auth import PostiAccountApiError
-
     with pytest.raises(PostiAccountApiError):
         await client.async_get_shipments()
 
@@ -231,7 +254,5 @@ async def test_generic_error_status_raises_api_error():
     client = PostiAccountClient(
         session, id_token=_fresh_id_token(), refresh_token="rt", role_tokens=ROLE_TOKENS
     )
-    from custom_components.posti.account.auth import PostiAccountApiError
-
     with pytest.raises(PostiAccountApiError):
         await client.async_get_shipments()

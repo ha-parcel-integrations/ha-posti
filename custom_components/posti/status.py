@@ -6,6 +6,7 @@ spelled the same in both — that is a coincidence, not a shared vocabulary, so
 each source keeps its own map and its own one-shot warning bookkeeping in its
 own module. Only the "where to report an unmapped value" link is shared.
 """
+
 from __future__ import annotations
 
 # Where users report a status/shape we do not handle yet. The ``?template=``

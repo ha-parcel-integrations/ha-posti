@@ -5,14 +5,15 @@ not a public OAuth redirect flow. Everything here is app-emulation, isolated
 from the tracking-code source's anonymous transport: no client, token or
 normalizer is shared between the two.
 """
+
 from __future__ import annotations
 
 import base64
 import hashlib
+from html.parser import HTMLParser
 import json
 import secrets
 import time
-from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -35,7 +36,6 @@ _WEBVIEW_HEADERS = {
     "x-posti-mobile": "android",
     "X-Requested-With": "fi.itella.posti.android",
 }
-
 
 
 class _FormReader(HTMLParser):
@@ -119,7 +119,7 @@ def _extract_authorization(
     before it can be exchanged, so the caller visits it the same way.
     ``None`` means no code anywhere — the credentials form came back.
     """
-    code = _code_from_urls(redirect_locations + [final_url])
+    code = _code_from_urls([*redirect_locations, final_url])
     if code:
         return code, None
     reader = _FormReader()
@@ -139,7 +139,9 @@ async def _json_body(response: aiohttp.ClientResponse) -> dict[str, Any]:
         ) from err
     if isinstance(body, dict):
         return body
-    raise PostiAccountApiError("response is not a JSON object", status_code=response.status)
+    raise PostiAccountApiError(
+        "response is not a JSON object", status_code=response.status
+    )
 
 
 def _validate_tokens(tokens: dict[str, Any]) -> dict[str, Any]:
@@ -260,7 +262,11 @@ async def _async_login(
         TOKEN_URL,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data=urlencode(
-            {"code": code, "code_verifier": verifier, "grant_type": "authorization_code"}
+            {
+                "code": code,
+                "code_verifier": verifier,
+                "grant_type": "authorization_code",
+            }
         ),
         timeout=_TIMEOUT,
     ) as response:

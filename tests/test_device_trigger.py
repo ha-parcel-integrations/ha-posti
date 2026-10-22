@@ -1,4 +1,5 @@
 """Tests for Posti device triggers."""
+
 from unittest.mock import AsyncMock
 
 from custom_components.posti.const import DOMAIN

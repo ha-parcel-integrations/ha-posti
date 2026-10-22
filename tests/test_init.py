@@ -1,4 +1,5 @@
 """Tests for Posti setup and unload, across both sources."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -105,7 +106,8 @@ async def test_per_parcel_sensor_spawn_and_remove(hass):
 
         mock.return_value = unknown_status_hit(OTHER_CODE)
         hass.config_entries.async_update_entry(
-            entry, options={**entry.options, CONF_PARCELS: [{CONF_TRACKING_CODE: OTHER_CODE}]}
+            entry,
+            options={**entry.options, CONF_PARCELS: [{CONF_TRACKING_CODE: OTHER_CODE}]},
         )
         await entry.runtime_data.coordinator.async_request_refresh()
         await hass.async_block_till_done()
@@ -200,12 +202,15 @@ async def test_account_token_refresh_is_persisted(hass):
                 }
             )
 
-    with patch(
-        "custom_components.posti.account.client.PostiAccountClient._async_ensure_fresh_token",
-        new=_refresh,
-    ), patch(
-        "custom_components.posti.account.client.PostiAccountClient._async_query",
-        new=AsyncMock(return_value=[]),
+    with (
+        patch(
+            "custom_components.posti.account.client.PostiAccountClient._async_ensure_fresh_token",
+            new=_refresh,
+        ),
+        patch(
+            "custom_components.posti.account.client.PostiAccountClient._async_query",
+            new=AsyncMock(return_value=[]),
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -226,12 +231,15 @@ async def test_second_tracking_hub_does_not_disturb_account_services(hass):
     account_entry = _account_entry()
     account_entry.add_to_hass(hass)
 
-    with patch(
-        "custom_components.posti.tracking.client.PostiTrackingClient.async_get_parcel",
-        new=AsyncMock(return_value=delivered_hit()),
-    ), patch(
-        "custom_components.posti.account.client.PostiAccountClient.async_get_shipments",
-        new=AsyncMock(return_value=[]),
+    with (
+        patch(
+            "custom_components.posti.tracking.client.PostiTrackingClient.async_get_parcel",
+            new=AsyncMock(return_value=delivered_hit()),
+        ),
+        patch(
+            "custom_components.posti.account.client.PostiAccountClient.async_get_shipments",
+            new=AsyncMock(return_value=[]),
+        ),
     ):
         assert await hass.config_entries.async_setup(tracking_entry.entry_id)
         await hass.async_block_till_done()

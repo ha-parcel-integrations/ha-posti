@@ -2,12 +2,13 @@
 
 Fetching and event firing only — the parcel mapping lives in ``parcels.py``.
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -65,10 +66,9 @@ def _next_anchor(now: datetime) -> datetime:
     )
     if now < six_today:
         return six_today
-    midnight_tomorrow = (now + timedelta(days=1)).replace(
+    return (now + timedelta(days=1)).replace(
         hour=QUIET_WINDOW_START_HOUR, minute=0, second=0, microsecond=0
     )
-    return midnight_tomorrow
 
 
 def _hottest_tier_minutes(active_parcels: list[dict], now: datetime) -> int | None:
@@ -134,9 +134,9 @@ class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
         self._consecutive_429 = 0
         self._current_tier_minutes: int | None = None
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: (
-            dict[str, tuple[str | None, str | None]] | None
-        ) = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         self._cached_device_id: str | None = None
         self.last_success_time: datetime | None = None
 
@@ -177,9 +177,7 @@ class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
     def _include_history(self) -> bool:
         """Whether the opt-in per-parcel history option is enabled."""
         return bool(
-            self.config_entry.options.get(
-                CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
-            )
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
         )
 
     async def _async_update_data(self) -> list[dict]:
@@ -207,12 +205,15 @@ class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
         errors = 0
         retry_afters: list[float] = []
         saw_429 = False
-        for code, result in zip(codes_to_fetch, results):
+        for code, result in zip(codes_to_fetch, results, strict=True):
             if isinstance(result, BaseException):
                 if not isinstance(result, (PostiTrackingApiError, aiohttp.ClientError)):
                     raise result
                 errors += 1
-                if isinstance(result, PostiTrackingApiError) and result.status_code == 429:
+                if (
+                    isinstance(result, PostiTrackingApiError)
+                    and result.status_code == 429
+                ):
                     saw_429 = True
                     if result.retry_after is not None:
                         retry_afters.append(result.retry_after)
@@ -255,12 +256,19 @@ class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
 
         include_history = self._include_history
         entries = [
-            (code, normalize_parcel(raw, tracking_code=code, include_history=include_history))
+            (
+                code,
+                normalize_parcel(
+                    raw, tracking_code=code, include_history=include_history
+                ),
+            )
             for code, raw in raws_by_code.items()
         ]
         active = [parcel for _, parcel in entries if not parcel["delivered"]]
         delivered = [parcel for _, parcel in entries if parcel["delivered"]]
-        self._delivered_codes = {code for code, parcel in entries if parcel["delivered"]}
+        self._delivered_codes = {
+            code for code, parcel in entries if parcel["delivered"]
+        }
 
         self.delivered = apply_delivered_filter(
             sort_parcels_by_ts(delivered, "delivered_at", descending=True),
@@ -271,13 +279,17 @@ class PostiTrackingCoordinator(DataUpdateCoordinator[list[dict]]):
         incoming = normalized_active + self.delivered
         device_id = self._device_id()
         fire_incoming_change_events(
-            self.hass, incoming, self._known_state, self._known_delivery_times, device_id
+            self.hass,
+            incoming,
+            self._known_state,
+            self._known_delivery_times,
+            device_id,
         )
         self._known_state = snapshot_states(incoming)
         self._known_delivery_times = snapshot_delivery_times(incoming)
 
         if not codes_to_fetch or errors < len(codes_to_fetch):
-            self.last_success_time = datetime.now(timezone.utc)
+            self.last_success_time = datetime.now(UTC)
 
         now = dt_util.now()
         self._current_tier_minutes = _hottest_tier_minutes(normalized_active, now)

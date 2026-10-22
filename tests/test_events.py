@@ -1,4 +1,5 @@
 """Tests for the shared HA-bus event contract."""
+
 from __future__ import annotations
 
 from custom_components.posti.const import DOMAIN, ParcelStatus
@@ -67,7 +68,9 @@ async def test_delivered_fires_delivered_not_status_changed(hass):
     delivered = []
     changed = []
     hass.bus.async_listen(f"{DOMAIN}_parcel_delivered", lambda e: delivered.append(e))
-    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: changed.append(e))
+    hass.bus.async_listen(
+        f"{DOMAIN}_parcel_status_changed", lambda e: changed.append(e)
+    )
     fire_incoming_change_events(
         hass,
         [_parcel("A", ParcelStatus.DELIVERED)],
@@ -115,7 +118,9 @@ async def test_losing_the_eta_is_silent(hass):
 def test_parcels_without_a_barcode_are_ignored(hass):
     fired = []
     hass.bus.async_listen(f"{DOMAIN}_parcel_registered", lambda e: fired.append(e))
-    fire_incoming_change_events(hass, [{"status": ParcelStatus.IN_TRANSIT}], {}, {}, None)
+    fire_incoming_change_events(
+        hass, [{"status": ParcelStatus.IN_TRANSIT}], {}, {}, None
+    )
     assert fired == []
 
 

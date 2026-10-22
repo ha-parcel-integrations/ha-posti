@@ -6,6 +6,7 @@ material — minted fresh at the start of every coordinator refresh, kept in
 memory only for that refresh, and never written to entry data, options,
 diagnostics, fixtures or logs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -259,7 +260,9 @@ class PostiTrackingClient:
             if response.status == 429:
                 retry_after_header = response.headers.get("Retry-After")
                 try:
-                    retry_after = float(retry_after_header) if retry_after_header else None
+                    retry_after = (
+                        float(retry_after_header) if retry_after_header else None
+                    )
                 except ValueError:
                     retry_after = None
                 raise PostiTrackingApiError(
@@ -269,16 +272,14 @@ class PostiTrackingClient:
                 # A missing/expired X-Posti-Token, alone, answers a bare
                 # non-JSON 401.
                 if response.status == 401:
-                    raise _AuthExpired()
+                    raise _AuthExpired
                 raise PostiTrackingApiError(
                     f"HTTP {response.status}", status_code=response.status
                 )
             try:
                 payload = await response.json(content_type=None)
             except ValueError as err:
-                raise PostiTrackingApiError(
-                    f"unparseable body ({err})"
-                ) from err
+                raise PostiTrackingApiError(f"unparseable body ({err})") from err
 
         if not isinstance(payload, dict):
             raise PostiTrackingApiError("unexpected body (not a JSON object)")
@@ -292,7 +293,7 @@ class PostiTrackingClient:
             ):
                 # A missing/expired Authorization, alone, answers this way —
                 # an ordinary 200 with a null result, not an HTTP error.
-                raise _AuthExpired()
+                raise _AuthExpired
             raise PostiTrackingApiError(
                 f"resolver failure: {errors!r}" if errors else "empty response"
             )
@@ -326,6 +327,4 @@ class PostiTrackingClient:
             try:
                 return await self._async_search(tracking_code)
             except _AuthExpired as err:
-                raise PostiTrackingApiError(
-                    "token rejected twice in a row"
-                ) from err
+                raise PostiTrackingApiError("token rejected twice in a row") from err

@@ -1,4 +1,5 @@
 """Tests for the anonymous-token GraphQL tracking transport."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -59,7 +60,9 @@ def _search_body(hit=None, *, total_hits=None, errors=None):
 
 
 async def test_mints_a_token_then_searches():
-    session = _session([_response(200, TOKEN_BODY), _response(200, _search_body(delivered_hit()))])
+    session = _session(
+        [_response(200, TOKEN_BODY), _response(200, _search_body(delivered_hit()))]
+    )
     client = PostiTrackingClient(session)
 
     hit = await client.async_get_parcel(TRACKING_CODE)
@@ -203,7 +206,9 @@ async def test_unparseable_search_body_raises():
 
 
 async def test_non_object_search_body_raises():
-    session = _session([_response(200, TOKEN_BODY), _response(200, ["not", "a", "dict"])])
+    session = _session(
+        [_response(200, TOKEN_BODY), _response(200, ["not", "a", "dict"])]
+    )
     client = PostiTrackingClient(session)
     with pytest.raises(PostiTrackingApiError):
         await client.async_get_parcel(TRACKING_CODE)

@@ -6,10 +6,11 @@ any of the seven ``shipmentPhase`` literals. Ship behind the one-shot warning
 net until a real account confirms it — do not promote this module to 1.0
 semantics on the strength of the tracking route's own gate.
 """
+
 from __future__ import annotations
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 
 from ..const import HISTORY_MAX_EVENTS, ParcelStatus
@@ -76,7 +77,11 @@ def _barcode(raw: dict[str, Any]) -> str | None:
         if isinstance(first, str) and first:
             return first
     shipment_number = raw.get("shipmentNumber")
-    return shipment_number if isinstance(shipment_number, str) and shipment_number else None
+    return (
+        shipment_number
+        if isinstance(shipment_number, str) and shipment_number
+        else None
+    )
 
 
 def _event_description(event: dict[str, Any]) -> str | None:
@@ -101,7 +106,9 @@ def _party(raw: dict[str, Any], role: str) -> str | None:
         if isinstance(party, dict) and party.get("role") == role:
             name = party.get("name")
             if isinstance(name, list):
-                name = ", ".join(part for part in name if isinstance(part, str) and part)
+                name = ", ".join(
+                    part for part in name if isinstance(part, str) and part
+                )
             return name or None
     return None
 
@@ -168,7 +175,9 @@ def build_history(
     return [entry for _, entry in parseable][-max_events:]
 
 
-def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = False) -> dict[str, Any]:
+def normalize_account_parcel(
+    raw: dict[str, Any], *, include_history: bool = False
+) -> dict[str, Any]:
     """Return the canonical shape for one account shipment.
 
     OmaPosti gives no dimensions, so those stay ``None``.

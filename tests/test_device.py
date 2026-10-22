@@ -1,4 +1,5 @@
 """Tests for the shared device-info builder."""
+
 from __future__ import annotations
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry

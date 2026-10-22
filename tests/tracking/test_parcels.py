@@ -1,5 +1,8 @@
 """Tests for the tracking-code source's canonical parcel mapping."""
+
 from __future__ import annotations
+
+import datetime as dt
 
 from custom_components.posti.const import ParcelStatus
 from custom_components.posti.tracking import parcels
@@ -114,9 +117,14 @@ def test_ready_for_pickup_event_wins_over_the_pickup_point_block():
 def test_receiver_joins_the_destination_name():
     hit = unknown_status_hit()
     hit["delivery"] = {"destination": {"name": ["Example", "Recipient"]}}
-    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"] == "Example, Recipient"
+    assert (
+        parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"]
+        == "Example, Recipient"
+    )
     hit["delivery"] = {"destination": {"name": []}}
-    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"] is None
+    assert (
+        parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["receiver"] is None
+    )
 
 
 def test_delivery_time_fills_the_planned_window_and_warns_once(caplog):
@@ -148,7 +156,10 @@ def test_delivery_time_without_latest_is_a_point_estimate():
 def test_delivered_parcel_drops_the_planned_window():
     hit = delivered_hit()
     hit["delivery"] = {"time": {"type": "X", "timestamp": "2026-05-03T08:00:00.000Z"}}
-    assert parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["planned_from"] is None
+    assert (
+        parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)["planned_from"]
+        is None
+    )
 
 
 def test_history_is_reversed_to_oldest_first():
@@ -205,14 +216,12 @@ def test_sort_parcels_by_ts_pushes_unparseable_to_the_end():
 
 
 def test_apply_delivered_filter_by_days():
-    import datetime as dt
-
     entry = type(
         "Entry",
         (),
         {"options": {"delivered_filter_type": "days", "delivered_filter_amount": 1}},
     )()
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     old = (now - dt.timedelta(days=5)).isoformat()
     recent = (now - dt.timedelta(hours=1)).isoformat()
     result = parcels.apply_delivered_filter(
@@ -228,7 +237,10 @@ def test_apply_delivered_filter_by_count():
         {"options": {"delivered_filter_type": "parcels", "delivered_filter_amount": 1}},
     )()
     result = parcels.apply_delivered_filter(
-        [{"delivered_at": "2026-01-02T00:00:00Z"}, {"delivered_at": "2026-01-01T00:00:00Z"}],
+        [
+            {"delivered_at": "2026-01-02T00:00:00Z"},
+            {"delivered_at": "2026-01-01T00:00:00Z"},
+        ],
         entry,
     )
     assert len(result) == 1
@@ -304,5 +316,8 @@ def test_unmapped_event_text_warns_once_and_leaves_status_empty(caplog):
 
 def test_known_non_status_event_text_does_not_warn(caplog):
     parcels._unmapped_events_logged.clear()
-    assert parcels.map_event_status("We sent the recipient an email about the item.") is None
+    assert (
+        parcels.map_event_status("We sent the recipient an email about the item.")
+        is None
+    )
     assert "Unrecognised Posti tracking event" not in caplog.text

@@ -1,4 +1,5 @@
 """Sample tracking-route GraphQL hits shared by the test modules."""
+
 from __future__ import annotations
 
 TRACKING_CODE = "JJFI00000000000001"
@@ -48,14 +49,40 @@ def returned_hit(code: str = TRACKING_CODE) -> dict:
         },
         "events": [
             event("2026-06-09T07:18:42.000Z", "The item has been delivered"),
-            event("2026-06-09T07:18:42.000Z", "No digital signature was received.", "ESPOO"),
-            event("2026-06-09T06:31:53.000Z", "Item is in delivery transportation", "ESPOO"),
-            event("2026-06-08T05:15:03.000Z", "The item has been returned to the sender.", "VANTAA"),
-            event("2026-06-08T05:13:14.000Z", "Item has not been collected.Returned to sender.", "Parcel locker, Example Store"),
-            event("2026-06-04T06:30:22.000Z", "We have tried to reach the recipient again by SMS"),
-            event("2026-06-01T06:18:33.000Z", "Item is ready for a pick up ", "Parcel locker, Example Store"),
+            event(
+                "2026-06-09T07:18:42.000Z",
+                "No digital signature was received.",
+                "ESPOO",
+            ),
+            event(
+                "2026-06-09T06:31:53.000Z",
+                "Item is in delivery transportation",
+                "ESPOO",
+            ),
+            event(
+                "2026-06-08T05:15:03.000Z",
+                "The item has been returned to the sender.",
+                "VANTAA",
+            ),
+            event(
+                "2026-06-08T05:13:14.000Z",
+                "Item has not been collected.Returned to sender.",
+                "Parcel locker, Example Store",
+            ),
+            event(
+                "2026-06-04T06:30:22.000Z",
+                "We have tried to reach the recipient again by SMS",
+            ),
+            event(
+                "2026-06-01T06:18:33.000Z",
+                "Item is ready for a pick up ",
+                "Parcel locker, Example Store",
+            ),
             event("2026-05-29T12:47:38.000Z", "Item accepted from transport", "VANTAA"),
             event("2026-05-28T17:54:17.000Z", "The item is in sorting", "VANTAA"),
-            event("2026-05-28T09:50:00.000Z", "We have received information about an upcoming delivery from the sender"),
+            event(
+                "2026-05-28T09:50:00.000Z",
+                "We have received information about an upcoming delivery from the sender",
+            ),
         ],
     }

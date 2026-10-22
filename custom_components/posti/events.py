@@ -6,6 +6,7 @@ the two cannot drift apart on it. Posti has no consumer-facing
 outgoing/sending surface, so only the incoming set exists — no outgoing pair
 to keep in sync.
 """
+
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant

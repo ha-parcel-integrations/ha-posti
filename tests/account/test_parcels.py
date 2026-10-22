@@ -1,10 +1,11 @@
 """Tests for the OmaPosti account source's canonical parcel mapping."""
+
 from __future__ import annotations
 
 from custom_components.posti.account import parcels
 from custom_components.posti.const import ParcelStatus
 
-from .payloads import SHIPMENT_NUMBER, TRACKING_NUMBER, full_shipment, shipment
+from .payloads import SHIPMENT_NUMBER, TRACKING_NUMBER, event, full_shipment, shipment
 
 
 def test_maps_every_documented_phase():
@@ -74,7 +75,10 @@ def test_full_shipment_maps_parties_weight_eta_and_pickup_point():
 
 def test_locker_address_is_preferred_as_pickup_point():
     raw = full_shipment("READY_FOR_PICKUP")
-    raw["pickupPoint"] = {"type": "LOCKER", "lockerAddress": "Parcel locker, Example Store"}
+    raw["pickupPoint"] = {
+        "type": "LOCKER",
+        "lockerAddress": "Parcel locker, Example Store",
+    }
     parcel = parcels.normalize_account_parcel(raw)
     assert parcel["pickup_point"] == "Parcel locker, Example Store"
 
@@ -116,8 +120,6 @@ def test_history_is_sorted_oldest_first_with_stable_tiebreak():
 
 
 def test_history_sorts_out_of_order_events_by_timestamp():
-    from .payloads import event
-
     raw = shipment()
     raw["events"] = [
         event("2026-05-02T10:00:00.000Z", "later"),

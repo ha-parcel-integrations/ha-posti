@@ -4,6 +4,7 @@ Deliberately isolated from the tracking-code source: its own token material,
 its own retry/refresh lifecycle, its own minimal field selection. Responses
 are returned as raw dictionaries; normalisation belongs in ``parcels.py``.
 """
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -77,7 +78,9 @@ def _consumer_role_token(role_tokens: list[dict[str, Any]]) -> str | None:
         (
             item.get("token")
             for item in role_tokens
-            if isinstance(item, dict) and item.get("type") == "consumer" and item.get("token")
+            if isinstance(item, dict)
+            and item.get("type") == "consumer"
+            and item.get("token")
         ),
         None,
     )
@@ -129,11 +132,15 @@ class PostiAccountClient:
         """Run ``GetShipments`` once, or raise :class:`_Unauthorized`."""
         role_token = _consumer_role_token(self._role_tokens)
         if not self._id_token or not role_token:
-            raise _Unauthorized()
+            raise _Unauthorized
 
         async with self._session.post(
             ACCOUNT_GRAPHQL_URL,
-            json={"operationName": "GetShipments", "variables": {}, "query": _SHIPMENTS_QUERY},
+            json={
+                "operationName": "GetShipments",
+                "variables": {},
+                "query": _SHIPMENTS_QUERY,
+            },
             headers={
                 "Authorization": f"Bearer {self._id_token}",
                 "X-Omaposti-Roles": role_token,
@@ -141,7 +148,7 @@ class PostiAccountClient:
             timeout=_TIMEOUT,
         ) as response:
             if response.status in (401, 403):
-                raise _Unauthorized()
+                raise _Unauthorized
             if response.status != 200:
                 raise PostiAccountApiError(
                     f"account inbox request failed (HTTP {response.status})",
@@ -166,15 +173,19 @@ class PostiAccountClient:
                 and str(error.get("errorType", "")).startswith("Unauthorized")
                 for error in errors
             ):
-                raise _Unauthorized()
+                raise _Unauthorized
             raise PostiAccountApiError(
-                "account inbox returned errors" if errors else "account inbox returned no data"
+                "account inbox returned errors"
+                if errors
+                else "account inbox returned no data"
             )
         shipments = data.get("shipment")
         if shipments is None:
             return []
         if not isinstance(shipments, list):
-            raise PostiAccountApiError("account inbox returned an unexpected shipment list")
+            raise PostiAccountApiError(
+                "account inbox returned an unexpected shipment list"
+            )
         return [item for item in shipments if isinstance(item, dict)]
 
     async def async_get_shipments(self) -> list[dict[str, Any]]:

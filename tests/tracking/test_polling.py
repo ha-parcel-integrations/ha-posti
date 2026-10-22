@@ -1,7 +1,8 @@
 """Tests for the tracking coordinator's dynamic-polling helpers."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from custom_components.posti.const import ParcelStatus
 from custom_components.posti.tracking.coordinator import (
@@ -16,7 +17,7 @@ from custom_components.posti.tracking.coordinator import (
 
 
 def _dt(hour: int, minute: int = 0) -> datetime:
-    return datetime(2026, 6, 15, hour, minute, tzinfo=timezone.utc)
+    return datetime(2026, 6, 15, hour, minute, tzinfo=UTC)
 
 
 def test_in_quiet_window():

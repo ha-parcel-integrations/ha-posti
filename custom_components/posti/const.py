@@ -1,4 +1,5 @@
 """Constants for the Posti parcel tracker integration."""
+
 from enum import StrEnum
 
 from homeassistant.const import Platform
@@ -16,14 +17,14 @@ class ParcelStatus(StrEnum):
     roughly the order a parcel moves through.
     """
 
-    REGISTERED = "registered"               # Sender announced the parcel; not handed over yet
-    IN_TRANSIT = "in_transit"               # In the carrier's network
-    OUT_FOR_DELIVERY = "out_for_delivery"   # On a delivery vehicle today
-    AT_PICKUP_POINT = "at_pickup_point"     # Ready to collect at a pickup location
-    DELIVERED = "delivered"                 # Handed over
-    RETURNING = "returning"                 # Failed delivery, going back to sender
-    PROBLEM = "problem"                     # Carrier reports an exception/issue
-    UNKNOWN = "unknown"                     # Raw status we have not mapped yet
+    REGISTERED = "registered"  # Sender announced the parcel; not handed over yet
+    IN_TRANSIT = "in_transit"  # In the carrier's network
+    OUT_FOR_DELIVERY = "out_for_delivery"  # On a delivery vehicle today
+    AT_PICKUP_POINT = "at_pickup_point"  # Ready to collect at a pickup location
+    DELIVERED = "delivered"  # Handed over
+    RETURNING = "returning"  # Failed delivery, going back to sender
+    PROBLEM = "problem"  # Carrier reports an exception/issue
+    UNKNOWN = "unknown"  # Raw status we have not mapped yet
 
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
@@ -39,9 +40,7 @@ KNOWN_CAPABILITIES = frozenset(
 # the tracking route's delivery.time has only been seen null, and the account
 # route gives a single estimate. Keep in sync with each normalizer.
 CAPABILITIES_BY_VARIANT = {
-    "Tracking": frozenset(
-        {"weight", "dimensions", "pickup_point", "url", "history"}
-    ),
+    "Tracking": frozenset({"weight", "dimensions", "pickup_point", "url", "history"}),
     "Account": frozenset({"weight", "pickup_point", "url", "history"}),
 }
 

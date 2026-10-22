@@ -1,4 +1,5 @@
 """Sample account-inbox shipment payloads shared by the test modules."""
+
 from __future__ import annotations
 
 TRACKING_NUMBER = "JJFI00000000000009"

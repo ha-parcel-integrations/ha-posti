@@ -1,4 +1,5 @@
 """Tests for the OmaPosti PKCE login, refresh and JWT-expiry helpers."""
+
 from __future__ import annotations
 
 import base64
@@ -119,7 +120,9 @@ async def test_async_login_visits_callback_for_hidden_form_code():
 
     assert tokens == TOKENS
     callback_url = session.get.call_args_list[2].args[0]
-    assert callback_url.startswith("https://auth-service.posti.fi/api/v1/oidc_callback?")
+    assert callback_url.startswith(
+        "https://auth-service.posti.fi/api/v1/oidc_callback?"
+    )
     assert "code=FROM%26FORM" in callback_url
     assert "state=STATE1" in callback_url
     assert "code=APPCODE" in session.post.call_args_list[1].kwargs["data"]
@@ -151,7 +154,11 @@ async def test_async_login_prefers_the_app_redirect_code():
         post_responses=[
             _resp(
                 url=f"{auth.LOGIN_REDIRECT_URI}?code=APPCODE",
-                history=[_redirect("https://auth-service.posti.fi/api/v1/oidc_callback?code=UASCODE")],
+                history=[
+                    _redirect(
+                        "https://auth-service.posti.fi/api/v1/oidc_callback?code=UASCODE"
+                    )
+                ],
             ),
             _resp(json_body=TOKENS),
         ],
@@ -304,7 +311,10 @@ async def test_async_refresh_merges_partial_response():
 async def test_async_refresh_sends_id_token_as_bearer_and_never_acks():
     session = _session(post_responses=[_resp(json_body=TOKENS)])
     await auth.async_refresh(
-        session, id_token="old-id", refresh_token="old-refresh", previous_role_tokens=None
+        session,
+        id_token="old-id",
+        refresh_token="old-refresh",
+        previous_role_tokens=None,
     )
     assert session.post.call_count == 1
     call = session.post.call_args_list[0]
@@ -361,7 +371,9 @@ async def test_async_refresh_other_status_raises_api_error():
 
 
 def _jwt(exp: float) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).decode().rstrip("=")
+    )
     return f"header.{payload}.signature"
 
 

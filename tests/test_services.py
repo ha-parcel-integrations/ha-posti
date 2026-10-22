@@ -1,15 +1,21 @@
 """Tests for the Posti services (track_parcel / untrack_parcel)."""
+
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from homeassistant.exceptions import ServiceValidationError
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posti.const import (
+    CONF_ID_TOKEN,
     CONF_PARCELS,
+    CONF_REFRESH_TOKEN,
+    CONF_ROLE_TOKENS,
     CONF_SOURCE,
     CONF_TRACKING_CODE,
+    CONF_USERNAME,
     DOMAIN,
+    SOURCE_ACCOUNT,
     SOURCE_TRACKING,
 )
 from custom_components.posti.services import async_setup_services
@@ -18,7 +24,9 @@ from .tracking.payloads import delivered_hit
 
 _SAMPLE = delivered_hit()
 
-_PATCH_TARGET = "custom_components.posti.tracking.client.PostiTrackingClient.async_get_parcel"
+_PATCH_TARGET = (
+    "custom_components.posti.tracking.client.PostiTrackingClient.async_get_parcel"
+)
 
 
 async def _setup(hass, parcels: list[dict] | None = None) -> MockConfigEntry:
@@ -39,7 +47,10 @@ async def test_track_parcel_adds_to_options(hass):
     entry = await _setup(hass)
     with patch(_PATCH_TARGET, new=AsyncMock(return_value=_SAMPLE)):
         await hass.services.async_call(
-            DOMAIN, "track_parcel", {CONF_TRACKING_CODE: "JJFI00000000000099"}, blocking=True
+            DOMAIN,
+            "track_parcel",
+            {CONF_TRACKING_CODE: "JJFI00000000000099"},
+            blocking=True,
         )
         await hass.async_block_till_done()
 
@@ -50,7 +61,10 @@ async def test_track_parcel_normalizes_code(hass):
     entry = await _setup(hass)
     with patch(_PATCH_TARGET, new=AsyncMock(return_value=_SAMPLE)):
         await hass.services.async_call(
-            DOMAIN, "track_parcel", {CONF_TRACKING_CODE: "jjfi-0000000000 0099"}, blocking=True
+            DOMAIN,
+            "track_parcel",
+            {CONF_TRACKING_CODE: "jjfi-0000000000 0099"},
+            blocking=True,
         )
         await hass.async_block_till_done()
 
@@ -70,7 +84,10 @@ async def test_track_parcel_duplicate_is_noop(hass):
     with patch(_PATCH_TARGET, new=AsyncMock(return_value=_SAMPLE)):
         for _ in range(2):
             await hass.services.async_call(
-                DOMAIN, "track_parcel", {CONF_TRACKING_CODE: "JJFI00000000000099"}, blocking=True
+                DOMAIN,
+                "track_parcel",
+                {CONF_TRACKING_CODE: "JJFI00000000000099"},
+                blocking=True,
             )
             await hass.async_block_till_done()
 
@@ -81,7 +98,10 @@ async def test_untrack_parcel_removes_from_options(hass):
     entry = await _setup(hass, parcels=[{CONF_TRACKING_CODE: "JJFI00000000000099"}])
     with patch(_PATCH_TARGET, new=AsyncMock(return_value=_SAMPLE)):
         await hass.services.async_call(
-            DOMAIN, "untrack_parcel", {CONF_TRACKING_CODE: "JJFI00000000000099"}, blocking=True
+            DOMAIN,
+            "untrack_parcel",
+            {CONF_TRACKING_CODE: "JJFI00000000000099"},
+            blocking=True,
         )
         await hass.async_block_till_done()
 
@@ -101,14 +121,6 @@ async def test_untrack_unknown_code_is_noop(hass):
 
 async def test_services_not_registered_without_a_tracking_hub(hass):
     """An account-only install must not gain manual tracking services."""
-    from custom_components.posti.const import (
-        CONF_ID_TOKEN,
-        CONF_REFRESH_TOKEN,
-        CONF_ROLE_TOKENS,
-        CONF_USERNAME,
-        SOURCE_ACCOUNT,
-    )
-
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="account:jane.doe",
@@ -145,5 +157,8 @@ async def test_setup_services_is_idempotent_and_needs_a_tracking_hub(hass):
     async_setup_services(hass)
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
-            DOMAIN, "untrack_parcel", {CONF_TRACKING_CODE: "JJFI00000000000099"}, blocking=True
+            DOMAIN,
+            "untrack_parcel",
+            {CONF_TRACKING_CODE: "JJFI00000000000099"},
+            blocking=True,
         )
