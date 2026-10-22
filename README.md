@@ -57,7 +57,11 @@ A custom Home Assistant integration that tracks your [Posti](https://www.posti.f
 
 1. In HACS, choose the three-dot menu → **Custom repositories**.
 2. Add `https://github.com/ha-parcel-integrations/ha-posti` as an **Integration**.
-3. Install **Posti** and restart Home Assistant.
+3. Install **Posti** and restart Home Assistant if HACS asks you to.
+
+Or click the button below to open it directly in HACS:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ha-parcel-integrations&repository=ha-posti&category=integration)
 
 ### Manual
 
@@ -65,7 +69,9 @@ Copy `custom_components/posti` into your `config/custom_components/` folder and 
 
 ## Configuration
 
-Add the integration via **Settings → Devices & Services → Add Integration → Posti**, then choose a source:
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=posti)
+
+Or set it up by hand: add the integration via **Settings → Devices & Services → Add Integration → Posti**, then choose a source:
 
 - **Tracking codes** — the hub is created immediately, nothing to fill in. Add parcels afterwards via the integration's **Configure** dialog, the [`posti.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml).
 - **OmaPosti account** — sign in with your OmaPosti username and password. Your password is used only for this one-time sign-in and is never stored; parcels are then discovered automatically. Sign-in may not work for an account with two-step verification turned on.
