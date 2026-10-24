@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -15,6 +16,8 @@ from custom_components.posti.const import (
     CONF_PARCELS,
     CONF_TRACKING_CODE,
     DOMAIN,
+    MID_INTERVAL_MINUTES,
+    STAGGER_MINUTES,
     ParcelStatus,
 )
 from custom_components.posti.tracking.client import PostiTrackingApiError
@@ -255,3 +258,30 @@ async def test_event_carries_device_id(hass):
 
     assert events == []  # both map to unknown -> no status change fired
     assert coordinator._device_id() == device.id
+
+
+async def test_failed_poll_drops_the_overnight_interval(hass):
+    entry = _entry_with(_parcels(TRACKING_CODE, OTHER_CODE))
+    entry.add_to_hass(hass)
+    client = _client()
+    client.async_get_parcel.side_effect = lambda code: (
+        unknown_status_hit(code) if code == TRACKING_CODE else delivered_hit(code)
+    )
+    coordinator = PostiTrackingCoordinator(hass, client, entry)
+    coordinator.update_interval = timedelta(hours=5, minutes=40)
+
+    noon = datetime(2026, 1, 15, 12, tzinfo=UTC)
+    with (
+        patch.object(coordinator, "_async_poll", side_effect=TimeoutError),
+        patch(
+            "custom_components.posti.tracking.coordinator.dt_util.now",
+            return_value=noon,
+        ),
+        pytest.raises(TimeoutError),
+    ):
+        await coordinator._async_update_data()
+
+    assert coordinator.update_interval is not None
+    assert coordinator.update_interval <= timedelta(
+        minutes=MID_INTERVAL_MINUTES + STAGGER_MINUTES
+    )
