@@ -207,3 +207,33 @@ async def test_a_sent_parcel_coming_back_is_incoming_news(hass):
     await hass.async_block_till_done()
 
     assert len(events) == 1
+
+
+async def test_a_parcel_the_delivered_list_leaves_out_still_fires_delivered(hass):
+    """The retention option limits the delivered sensor, never the events."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_DELIVERED_FILTER_AMOUNT: 1}
+    )
+    client = AsyncMock()
+    coordinator = PostiAccountCoordinator(hass, client, entry)
+    delivered = []
+    hass.bus.async_listen(f"{DOMAIN}_parcel_delivered", lambda e: delivered.append(e))
+
+    def inbox(phase):
+        return [
+            shipment(phase),
+            shipment(phase, tracking_number="OTHER", shipment_number="S2"),
+        ]
+
+    client.async_get_shipments.return_value = inbox("IN_TRANSPORT")
+    await coordinator._async_update_data()
+    client.async_get_shipments.return_value = inbox("DELIVERED")
+    await coordinator._async_update_data()
+    await hass.async_block_till_done()
+
+    assert sorted(e.data["barcode"] for e in delivered) == sorted(
+        [TRACKING_NUMBER, "OTHER"]
+    )
+    assert len(coordinator.delivered) == 1

@@ -123,19 +123,23 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         sent_active = [parcel for parcel in outgoing_parcels if not parcel["delivered"]]
         sent_delivered = [parcel for parcel in outgoing_parcels if parcel["delivered"]]
 
-        self.delivered = apply_delivered_filter(
-            sort_parcels_by_ts(delivered, "delivered_at", descending=True),
-            self.config_entry,
+        delivered_sorted = sort_parcels_by_ts(
+            delivered, "delivered_at", descending=True
+        )
+        self.delivered = apply_delivered_filter(delivered_sorted, self.config_entry)
+        outgoing_delivered_sorted = sort_parcels_by_ts(
+            sent_delivered, "delivered_at", descending=True
         )
         self.outgoing_delivered = apply_delivered_filter(
-            sort_parcels_by_ts(sent_delivered, "delivered_at", descending=True),
-            self.config_entry,
+            outgoing_delivered_sorted, self.config_entry
         )
         normalized_active = sort_parcels_by_ts(active, "planned_from")
         self.outgoing = sort_parcels_by_ts(sent_active, "planned_from")
 
-        incoming = normalized_active + self.delivered
-        outgoing = self.outgoing + self.outgoing_delivered
+        # Events and remembered state cover every parcel; the retention option
+        # only limits what the delivered sensor shows.
+        incoming = normalized_active + delivered_sorted
+        outgoing = self.outgoing + outgoing_delivered_sorted
         device_id = self._device_id()
         fire_incoming_change_events(
             self.hass,
