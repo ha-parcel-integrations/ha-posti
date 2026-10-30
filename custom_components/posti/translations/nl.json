@@ -15,23 +15,27 @@
       },
       "account": {
         "title": "OmaPosti-account instellen",
-        "description": "Log eenmalig in om pakketten uit je OmaPosti-account te importeren. Je wachtwoord wordt nooit opgeslagen.",
+        "description": "Posti accepteert geen wachtwoord meer, dus je meldt je aan met sterke authenticatie (je bank of Mobiilivarmenne) in je eigen browser. Home Assistant registreert zich daarna als vertrouwd apparaat van je OmaPosti-account en bewaart de sleutel van dat apparaat, waarmee de aanmelding wordt vernieuwd zonder je bank. Wie je Home Assistant-configuratie of back-ups kan lezen, kan die sleutel gebruiken; trek hem in door het apparaat in de OmaPosti-app te verwijderen. Kies hoe je je aanmeldt.",
         "data": {
-          "username": "Gebruikersnaam",
-          "password": "Wachtwoord"
+          "method": "Authenticatiemethode"
         }
       },
       "reauth_confirm": {
-        "title": "OmaPosti-aanmelding verlopen",
-        "description": "Posti accepteert de opgeslagen tokens voor {username} niet meer. Voer het wachtwoord van dat account opnieuw in.",
+        "title": "OmaPosti heeft een nieuwe aanmelding nodig",
+        "description": "Posti accepteert de opgeslagen aanmelding {account} niet meer. Meld je opnieuw aan met sterke authenticatie."
+      },
+      "authenticate": {
+        "title": "Authenticeren bij Posti",
+        "description": "Open [dit adres]({address}) in je browser en authenticeer. Kopieer daarna het volledige adres uit de adresbalk van je browser en plak het hieronder. Houd het voor jezelf: het meldt je eenmaal aan bij je account.",
         "data": {
-          "password": "Wachtwoord"
+          "return_address": "Adres waar je browser eindigde"
         }
       }
     },
     "error": {
-      "invalid_auth": "Aanmelden met deze gegevens is niet gelukt. Bij een account met tweestapsverificatie werkt aanmelden hier mogelijk niet.",
-      "cannot_connect": "Kan geen verbinding maken met de OmaPosti-accountservice."
+      "invalid_auth": "Posti heeft de authenticatie niet geaccepteerd. Begin opnieuw en plak het adres waar je browser direct na het authenticeren eindigde.",
+      "cannot_connect": "Kan geen verbinding maken met de OmaPosti-accountservice.",
+      "invalid_return_address": "Dit is niet het adres waar Posti naar terugkeert na het authenticeren. Kopieer het volledige adres uit je browser direct nadat je klaar bent."
     },
     "abort": {
       "already_configured": "Posti is al ingesteld.",
@@ -102,7 +106,9 @@
       "parcel_registered": "Een pakket is geregistreerd",
       "parcel_status_changed": "De status van een pakket is gewijzigd",
       "parcel_delivered": "Een pakket is bezorgd",
-      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd"
+      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd",
+      "outgoing_parcel_status_changed": "De status van een verstuurd pakket is gewijzigd",
+      "outgoing_parcel_delivered": "Een verstuurd pakket is bezorgd"
     }
   },
   "entity": {
@@ -137,6 +143,14 @@
       },
       "parcel": {
         "name": "Pakket {barcode}"
+      },
+      "outgoing_parcels": {
+        "name": "Uitgaande pakketten",
+        "unit_of_measurement": "pakketten"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Bezorgde uitgaande pakketten",
+        "unit_of_measurement": "pakketten"
       }
     }
   }

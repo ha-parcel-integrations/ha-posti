@@ -7,13 +7,16 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .account import device as account_device
 from .account.client import PostiAccountClient
 from .account.coordinator import PostiAccountCoordinator
+from .account.errors import PostiAccountApiError, PostiAccountReauthRequired
 from .const import (
+    CONF_DEVICE,
     CONF_ID_TOKEN,
-    CONF_REFRESH_TOKEN,
     CONF_ROLE_TOKENS,
     CONF_SOURCE,
     DOMAIN,
@@ -44,6 +47,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> boo
     is_account = entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT
     client: PostiAccountClient | PostiTrackingClient
     if is_account:
+        # An entry from the password login has no trusted device: it can only
+        # sign in again, which Home Assistant offers as reauthentication.
+        if not entry.data.get(CONF_DEVICE):
+            raise ConfigEntryAuthFailed("OmaPosti needs a new sign-in")
 
         async def _async_store_tokens(tokens: dict[str, object]) -> None:
             hass.config_entries.async_update_entry(
@@ -51,15 +58,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> boo
                 data={
                     **entry.data,
                     CONF_ID_TOKEN: tokens[CONF_ID_TOKEN],
-                    CONF_REFRESH_TOKEN: tokens[CONF_REFRESH_TOKEN],
                     CONF_ROLE_TOKENS: tokens[CONF_ROLE_TOKENS],
                 },
             )
 
         client = PostiAccountClient(
             async_get_clientsession(hass),
+            device=account_device.Device.from_data(entry.data[CONF_DEVICE]),
             id_token=entry.data.get(CONF_ID_TOKEN),
-            refresh_token=entry.data.get(CONF_REFRESH_TOKEN),
             role_tokens=entry.data.get(CONF_ROLE_TOKENS),
             token_callback=_async_store_tokens,
         )
@@ -120,3 +126,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> bo
     ):
         async_unload_services(hass)
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> None:
+    """Take the integration's device off the OmaPosti account on removal."""
+    if entry.data.get(CONF_SOURCE) != SOURCE_ACCOUNT or not entry.data.get(CONF_DEVICE):
+        return
+    session = async_get_clientsession(hass)
+    device = account_device.Device.from_data(entry.data[CONF_DEVICE])
+    try:
+        # The stored id token has usually expired; renew before deactivating.
+        fresh = await account_device.refresh(
+            session, device, str(entry.data.get(CONF_ID_TOKEN))
+        )
+        await account_device.deactivate(session, device, fresh["id_token"])
+    except PostiAccountReauthRequired:
+        # Posti no longer trusts the device, so there is nothing to remove.
+        return
+    except PostiAccountApiError:
+        _LOGGER.warning(
+            "Could not remove the Home Assistant device from the OmaPosti "
+            "account of entry %s; remove it in the OmaPosti app",
+            entry.entry_id,
+        )

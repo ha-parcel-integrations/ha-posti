@@ -73,27 +73,58 @@ TRACKING_GRAPHQL_URL = "https://graphql.posti.fi/graphql"
 CONF_PARCELS = "parcels"
 CONF_TRACKING_CODE = "tracking_code"
 
-# --- OmaPosti account source: PKCE login + account GraphQL ----------------
-LOGIN_URL = "https://auth-service.posti.fi/api/v1/login"
-TOKEN_URL = "https://auth-service.posti.fi/api/v1/token_v2"
-REFRESH_URL = "https://auth-service.posti.fi/api/v1/refresh_v2"
-UAS_BASE_URL = "https://todentaminen.posti.fi/uas/authn"
-ACCOUNT_GRAPHQL_URL = "https://oma.posti.fi/graphql/v2"
+# --- OmaPosti account source: strong-authentication login + trusted device --
+AUTH_SERVICE_URL = "https://auth-service.posti.fi/api/v1"
+MFA_URL = "https://mfa.posti.fi/api/v1"
+UAS_HOST = "todentaminen.posti.fi"
+# AppSync, the same GraphQL the anonymous tracking route uses.
+ACCOUNT_GRAPHQL_URL = "https://graphql.posti.fi/graphql"
+# One page holds a whole account: pages are not a snapshot, and a shipment that
+# drops off one between two requests would move another off the next.
+ACCOUNT_PAGE_SIZE = 1000
+# AppSync answers a refused id token with status 200, this error type and no
+# shipments; a refused role token gets 401.
+UNAUTHORIZED_ERROR_TYPE = "Unauthorized"
 
-# Fixed PKCE parameters Posti's own login service requires — protocol
-# constants, not application secrets.
+# Posti's login only works with these client identifiers: one for the API
+# calls, one for the login pages.
+APP_USER_AGENT = "okhttp/4.12.0"
+WEB_VIEW_USER_AGENT = (
+    "Mozilla/5.0 (Linux; Android 16; sdk_gphone64_x86_64 "
+    "Build/BE2A.250530.026.F3; wv) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Version/4.0 Chrome/133.0.6943.137 Mobile Safari/537.36 "
+    "OmaPostiAndroid/6.5.1+7713/WebView(133.0.6943.137)"
+)
+APP_PACKAGE = "fi.itella.posti.android"
 LOGIN_REDIRECT_URI = "https://oma.posti.fi/app/login"
-# The OmaPosti app's relying-party entityID in Posti's login service — a
-# fixed SAML identifier, not a per-user or per-install secret.
-LOGIN_ENTITY_ID = "34aaf9ea-e060-4d9d-b9a2-2cc6a0e44a2a"
+# How the integration's trusted device shows in the account's device list.
+DEVICE_MODEL = "Home Assistant"
+# Order of the authentication methods in the config flow, by provider
+# (telia.ftn.oidc.<provider>.1): Mobiilivarmenne, the banks, then the rest in
+# the login page's order.
+METHOD_ORDER = [
+    "mobileid",
+    "aktia",
+    "danske",
+    "nordea",
+    "omasp",
+    "op",
+    "pop",
+    "spankki",
+    "saastopankki",
+    "alandsbanken",
+    "hst",
+    "htid",
+]
 
 CONF_USERNAME = "username"
-CONF_PASSWORD = "password"
 CONF_ID_TOKEN = "id_token"
-CONF_REFRESH_TOKEN = "refresh_token"
 CONF_ROLE_TOKENS = "role_tokens"
+CONF_DEVICE = "device"
+CONF_METHOD = "method"
+CONF_RETURN_ADDRESS = "return_address"
 
-# Refresh shortly before the unverified JWT's `exp`.
+# Renew shortly before the unverified JWT's `exp`.
 ACCOUNT_TOKEN_REFRESH_MARGIN_SECONDS = 300
 
 # Delivered-parcels retention: keep delivered parcels visible for the last N

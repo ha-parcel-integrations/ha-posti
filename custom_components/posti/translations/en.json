@@ -15,23 +15,27 @@
       },
       "account": {
         "title": "Set up OmaPosti account",
-        "description": "Sign in once to import parcels from your OmaPosti account. Your password is never stored.",
+        "description": "Posti no longer accepts a password, so you sign in with strong authentication (your bank or Mobiilivarmenne) in your own browser. Home Assistant then registers itself as a trusted device of your OmaPosti account and keeps that device's key, which renews the login without your bank. Anyone who can read your Home Assistant configuration or backups can use it; remove the device in the OmaPosti app to revoke it. Choose how you sign in.",
         "data": {
-          "username": "Username",
-          "password": "Password"
+          "method": "Authentication method"
         }
       },
       "reauth_confirm": {
-        "title": "OmaPosti sign-in expired",
-        "description": "Posti no longer accepts the stored tokens for {username}. Enter that account's password again.",
+        "title": "OmaPosti needs a new sign-in",
+        "description": "Posti no longer accepts the stored login {account}. Sign in again with strong authentication."
+      },
+      "authenticate": {
+        "title": "Authenticate with Posti",
+        "description": "Open [this address]({address}) in your browser and authenticate. When you are done, copy the full address from your browser's address bar and paste it below. Keep it to yourself: it signs in to your account once.",
         "data": {
-          "password": "Password"
+          "return_address": "Address your browser ended on"
         }
       }
     },
     "error": {
-      "invalid_auth": "Unable to sign in with these credentials. Sign-in may not work for an account with two-step verification turned on.",
-      "cannot_connect": "Unable to connect to the OmaPosti account service."
+      "invalid_auth": "Posti did not accept the authentication. Start again and paste the address your browser ended on right after authenticating.",
+      "cannot_connect": "Unable to connect to the OmaPosti account service.",
+      "invalid_return_address": "That is not the address Posti returns to after authenticating. Copy the full address from your browser right after you finish."
     },
     "abort": {
       "already_configured": "Posti is already set up.",
@@ -102,7 +106,9 @@
       "parcel_registered": "A parcel was registered",
       "parcel_status_changed": "A parcel's status changed",
       "parcel_delivered": "A parcel was delivered",
-      "parcel_delivery_time_changed": "A parcel's expected delivery time changed"
+      "parcel_delivery_time_changed": "A parcel's expected delivery time changed",
+      "outgoing_parcel_status_changed": "A sent parcel's status changed",
+      "outgoing_parcel_delivered": "A sent parcel was delivered"
     }
   },
   "entity": {
@@ -137,6 +143,14 @@
       },
       "parcel": {
         "name": "Parcel {barcode}"
+      },
+      "outgoing_parcels": {
+        "name": "Outgoing parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Outgoing delivered parcels",
+        "unit_of_measurement": "parcels"
       }
     }
   }

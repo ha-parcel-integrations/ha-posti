@@ -59,6 +59,13 @@ TO_REDACT = {
     "id_token",
     "refresh_token",
     "role_tokens",
+    "device",
+    "device_id",
+    "private_key",
+    "salt",
+    "subject",
+    "access_token",
+    "return_address",
     "Authorization",
     "X-Posti-Token",
     "X-Omaposti-Roles",
@@ -78,6 +85,8 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics for the Posti config entry."""
     coordinator = entry.runtime_data.coordinator
+    outgoing = getattr(coordinator, "outgoing", [])
+    outgoing_delivered = getattr(coordinator, "outgoing_delivered", [])
 
     return {
         "entry_data": async_redact_data(dict(entry.data), TO_REDACT),
@@ -85,6 +94,8 @@ async def async_get_config_entry_diagnostics(
         "counts": {
             "incoming_active": len(coordinator.data or []),
             "delivered": len(coordinator.delivered or []),
+            "outgoing_active": len(outgoing),
+            "outgoing_delivered": len(outgoing_delivered),
             "skipped_from_fetch": len(coordinator.delivered_codes),
         },
         "polling": {
@@ -98,4 +109,6 @@ async def async_get_config_entry_diagnostics(
         },
         "incoming": async_redact_data(coordinator.data or [], TO_REDACT),
         "delivered": async_redact_data(coordinator.delivered or [], TO_REDACT),
+        "outgoing": async_redact_data(outgoing, TO_REDACT),
+        "delivered_outgoing": async_redact_data(outgoing_delivered, TO_REDACT),
     }

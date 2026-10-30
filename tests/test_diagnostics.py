@@ -36,6 +36,8 @@ async def test_diagnostics_redacts_and_counts(hass):
     assert result["counts"] == {
         "incoming_active": 1,
         "delivered": 0,
+        "outgoing_active": 0,
+        "outgoing_delivered": 0,
         "skipped_from_fetch": 0,
     }
     assert result["polling"] == {
@@ -58,7 +60,12 @@ async def test_diagnostics_redacts_account_entry_data():
         "source": "account",
         "username": "jane.doe",
         "id_token": "secret-id-token",
-        "refresh_token": "secret-refresh-token",
+        "device": {
+            "device_id": "dev-1",
+            "private_key": "secret-key",
+            "salt": "secret-salt",
+            "subject": "sub-1",
+        },
         "role_tokens": [
             {"type": "consumer", "token": "x", "email": "jane@example.com"}
         ],
@@ -74,7 +81,7 @@ async def test_diagnostics_redacts_account_entry_data():
 
     assert result["entry_data"]["username"] == "**REDACTED**"
     assert result["entry_data"]["id_token"] == "**REDACTED**"
-    assert result["entry_data"]["refresh_token"] == "**REDACTED**"
+    assert result["entry_data"]["device"] == "**REDACTED**"
     assert result["entry_data"]["role_tokens"] == "**REDACTED**"
     assert result["entry_data"]["source"] == "account"
 

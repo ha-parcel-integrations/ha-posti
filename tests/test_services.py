@@ -7,9 +7,9 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posti.const import (
+    CONF_DEVICE,
     CONF_ID_TOKEN,
     CONF_PARCELS,
-    CONF_REFRESH_TOKEN,
     CONF_ROLE_TOKENS,
     CONF_SOURCE,
     CONF_TRACKING_CODE,
@@ -128,7 +128,12 @@ async def test_services_not_registered_without_a_tracking_hub(hass):
             CONF_SOURCE: SOURCE_ACCOUNT,
             CONF_USERNAME: "jane.doe",
             CONF_ID_TOKEN: "id",
-            CONF_REFRESH_TOKEN: "refresh",
+            CONF_DEVICE: {
+                "device_id": "dev-1",
+                "private_key": "pem",
+                "salt": "c2FsdA==",
+                "subject": "sub-1",
+            },
             CONF_ROLE_TOKENS: [{"type": "consumer", "token": "x"}],
         },
         options={},

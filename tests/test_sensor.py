@@ -10,6 +10,8 @@ from custom_components.posti.sensor import (
     PostiIncomingParcelsSensor,
     PostiLastUpdateSensor,
     PostiNextDeliverySensor,
+    PostiOutgoingDeliveredParcelsSensor,
+    PostiOutgoingParcelsSensor,
     PostiParcelSensor,
 )
 
@@ -127,3 +129,22 @@ def test_last_update_sensor():
     coordinator.last_success_time = moment
     sensor = PostiLastUpdateSensor(coordinator, _entry())
     assert sensor.native_value == moment
+
+
+def test_outgoing_sensors_count_and_list_sent_parcels():
+    coordinator = _coordinator([_parcel("A")])
+    coordinator.outgoing = [_parcel("S1"), _parcel("S2")]
+    coordinator.outgoing_delivered = [_parcel("S3", ParcelStatus.DELIVERED)]
+
+    active = PostiOutgoingParcelsSensor(coordinator, _entry())
+    delivered = PostiOutgoingDeliveredParcelsSensor(coordinator, _entry())
+
+    assert active.native_value == 2
+    assert [p["barcode"] for p in active.extra_state_attributes["parcels"]] == [
+        "S1",
+        "S2",
+    ]
+    assert active.unique_id == "e1_outgoing_parcels"
+    assert delivered.native_value == 1
+    assert delivered.extra_state_attributes["parcels"][0]["barcode"] == "S3"
+    assert delivered.unique_id == "e1_outgoing_delivered_parcels"

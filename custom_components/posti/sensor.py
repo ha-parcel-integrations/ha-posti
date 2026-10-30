@@ -58,6 +58,8 @@ async def async_setup_entry(
         f"{entry_id}_next_delivery",
         f"{entry_id}_awaiting_pickup",
         f"{entry_id}_delivered_parcels",
+        f"{entry_id}_outgoing_parcels",
+        f"{entry_id}_outgoing_delivered_parcels",
         f"{entry_id}_last_update",
     }
     for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
@@ -82,6 +84,9 @@ async def async_setup_entry(
     entities.append(PostiNextDeliverySensor(coordinator, entry))
     entities.append(PostiAwaitingPickupSensor(coordinator, entry))
     entities.append(PostiDeliveredParcelsSensor(coordinator, entry))
+    if isinstance(coordinator, PostiAccountCoordinator):
+        entities.append(PostiOutgoingParcelsSensor(coordinator, entry))
+        entities.append(PostiOutgoingDeliveredParcelsSensor(coordinator, entry))
     entities.append(PostiLastUpdateSensor(coordinator, entry))
 
     async_add_entities(entities)
@@ -301,6 +306,66 @@ class PostiDeliveredParcelsSensor(CoordinatorEntity[PostiCoordinator], SensorEnt
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
         return {"parcels": self.coordinator.delivered}
+
+
+class PostiOutgoingParcelsSensor(
+    CoordinatorEntity[PostiAccountCoordinator], SensorEntity
+):
+    """Active parcels the user sent (OmaPosti account only)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "outgoing_parcels"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(
+        self, coordinator: PostiAccountCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_outgoing_parcels"
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of active sent parcels."""
+        return len(self.coordinator.outgoing)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the active sent parcels."""
+        return {"parcels": self.coordinator.outgoing}
+
+
+class PostiOutgoingDeliveredParcelsSensor(
+    CoordinatorEntity[PostiAccountCoordinator], SensorEntity
+):
+    """Recently delivered parcels the user sent (OmaPosti account only)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "outgoing_delivered_parcels"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(
+        self, coordinator: PostiAccountCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_outgoing_delivered_parcels"
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of retained delivered sent parcels."""
+        return len(self.coordinator.outgoing_delivered)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the delivered sent parcels."""
+        return {"parcels": self.coordinator.outgoing_delivered}
 
 
 class PostiLastUpdateSensor(CoordinatorEntity[PostiCoordinator], SensorEntity):

@@ -24,13 +24,14 @@ from ..const import (
 )
 from ..events import (
     fire_incoming_change_events,
+    fire_outgoing_change_events,
     snapshot_delivery_times,
     snapshot_states,
 )
 from ..tracking.parcels import apply_delivered_filter, sort_parcels_by_ts
-from .auth import PostiAccountApiError, PostiAccountReauthRequired
 from .client import PostiAccountClient
-from .parcels import normalize_account_parcel
+from .errors import PostiAccountApiError, PostiAccountReauthRequired
+from .parcels import is_incoming, normalize_account_parcel
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,11 +54,14 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         )
         self._client = client
         self.delivered: list[dict] = []
+        self.outgoing: list[dict] = []
+        self.outgoing_delivered: list[dict] = []
         # None on the first refresh deliberately suppresses historical events.
         self._known_state: dict[str, ParcelStatus] | None = None
         self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
             None
         )
+        self._known_outgoing_state: dict[str, ParcelStatus] | None = None
         self._cached_device_id: str | None = None
         self.last_success_time: datetime | None = None
         # Fixed cadence — an account inbox is one batched call with nothing
@@ -102,26 +106,36 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
             shipments = await self._client.async_get_shipments()
         except PostiAccountReauthRequired as err:
             raise ConfigEntryAuthFailed(
-                "OmaPosti sign-in expired; please reauthenticate"
+                "OmaPosti sign-in expired; please sign in again"
             ) from err
         except PostiAccountApiError as err:
             raise UpdateFailed("Unable to update the OmaPosti account inbox") from err
 
         include_history = self._include_history
-        parcels = [
-            normalize_account_parcel(raw, include_history=include_history)
-            for raw in shipments
-        ]
-        active = [parcel for parcel in parcels if not parcel["delivered"]]
-        delivered = [parcel for parcel in parcels if parcel["delivered"]]
+        incoming_parcels: list[dict] = []
+        outgoing_parcels: list[dict] = []
+        for raw in shipments:
+            parcel = normalize_account_parcel(raw, include_history=include_history)
+            (incoming_parcels if is_incoming(raw) else outgoing_parcels).append(parcel)
+
+        active = [parcel for parcel in incoming_parcels if not parcel["delivered"]]
+        delivered = [parcel for parcel in incoming_parcels if parcel["delivered"]]
+        sent_active = [parcel for parcel in outgoing_parcels if not parcel["delivered"]]
+        sent_delivered = [parcel for parcel in outgoing_parcels if parcel["delivered"]]
 
         self.delivered = apply_delivered_filter(
             sort_parcels_by_ts(delivered, "delivered_at", descending=True),
             self.config_entry,
         )
+        self.outgoing_delivered = apply_delivered_filter(
+            sort_parcels_by_ts(sent_delivered, "delivered_at", descending=True),
+            self.config_entry,
+        )
         normalized_active = sort_parcels_by_ts(active, "planned_from")
+        self.outgoing = sort_parcels_by_ts(sent_active, "planned_from")
 
         incoming = normalized_active + self.delivered
+        outgoing = self.outgoing + self.outgoing_delivered
         device_id = self._device_id()
         fire_incoming_change_events(
             self.hass,
@@ -130,8 +144,12 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
             self._known_delivery_times,
             device_id,
         )
+        fire_outgoing_change_events(
+            self.hass, outgoing, self._known_outgoing_state, device_id
+        )
         self._known_state = snapshot_states(incoming)
         self._known_delivery_times = snapshot_delivery_times(incoming)
+        self._known_outgoing_state = snapshot_states(outgoing)
 
         self.last_success_time = datetime.now(UTC)
         return normalized_active

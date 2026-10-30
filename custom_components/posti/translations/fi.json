@@ -15,23 +15,27 @@
       },
       "account": {
         "title": "Määritä OmaPosti-tili",
-        "description": "Kirjaudu kerran tuodaksesi lähetykset OmaPosti-tilistäsi. Salasanaa ei tallenneta.",
+        "description": "Posti ei enää hyväksy salasanaa, joten kirjaudut vahvalla tunnistautumisella (pankkitunnuksilla tai Mobiilivarmenteella) omassa selaimessasi. Home Assistant rekisteröityy sen jälkeen OmaPosti-tilisi luotettuna laitteeksi ja tallentaa laitteen avaimen, jolla kirjautuminen uusitaan ilman pankkia. Jokainen, joka pääsee Home Assistantin asetuksiin tai varmuuskopioihin, voi käyttää avainta; peruuta se poistamalla laite OmaPosti-sovelluksesta. Valitse kirjautumistapa.",
         "data": {
-          "username": "Käyttäjätunnus",
-          "password": "Salasana"
+          "method": "Tunnistautumistapa"
         }
       },
       "reauth_confirm": {
-        "title": "OmaPosti-kirjautuminen vanhentunut",
-        "description": "Posti ei enää hyväksy tallennettuja tunnisteita käyttäjälle {username}. Anna kyseisen tilin salasana uudelleen.",
+        "title": "OmaPosti tarvitsee uuden kirjautumisen",
+        "description": "Posti ei enää hyväksy tallennettua kirjautumista {account}. Kirjaudu uudelleen vahvalla tunnistautumisella."
+      },
+      "authenticate": {
+        "title": "Tunnistaudu Postiin",
+        "description": "Avaa [tämä osoite]({address}) selaimessasi ja tunnistaudu. Kun olet valmis, kopioi selaimen osoitekentän koko osoite ja liitä se alle. Pidä se omana tietonasi: se kirjaa tilillesi kerran.",
         "data": {
-          "password": "Salasana"
+          "return_address": "Osoite, johon selain päätyi"
         }
       }
     },
     "error": {
-      "invalid_auth": "Kirjautuminen näillä tiedoilla epäonnistui. Kirjautuminen ei välttämättä toimi, jos tilillä on kaksivaiheinen tunnistautuminen käytössä.",
-      "cannot_connect": "Yhteyttä OmaPosti-tilipalveluun ei saatu."
+      "invalid_auth": "Posti ei hyväksynyt tunnistautumista. Aloita alusta ja liitä osoite, johon selain päätyi heti tunnistautumisen jälkeen.",
+      "cannot_connect": "Yhteyttä OmaPosti-tilipalveluun ei saatu.",
+      "invalid_return_address": "Tämä ei ole osoite, johon Posti palaa tunnistautumisen jälkeen. Kopioi koko osoite selaimesta heti tunnistautumisen jälkeen."
     },
     "abort": {
       "already_configured": "Posti on jo määritetty.",
@@ -102,7 +106,9 @@
       "parcel_registered": "Lähetys rekisteröitiin",
       "parcel_status_changed": "Lähetyksen tila muuttui",
       "parcel_delivered": "Lähetys toimitettiin",
-      "parcel_delivery_time_changed": "Lähetyksen arvioitu toimitusaika muuttui"
+      "parcel_delivery_time_changed": "Lähetyksen arvioitu toimitusaika muuttui",
+      "outgoing_parcel_status_changed": "Lähetetyn paketin tila muuttui",
+      "outgoing_parcel_delivered": "Lähetetty paketti toimitettiin"
     }
   },
   "entity": {
@@ -137,6 +143,14 @@
       },
       "parcel": {
         "name": "Paketti {barcode}"
+      },
+      "outgoing_parcels": {
+        "name": "Lähtevät paketit",
+        "unit_of_measurement": "pakettia"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Toimitetut lähtevät paketit",
+        "unit_of_measurement": "pakettia"
       }
     }
   }

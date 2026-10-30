@@ -31,6 +31,12 @@
       },
       "parcel": {
         "default": "mdi:package-variant-closed"
+      },
+      "outgoing_parcels": {
+        "default": "mdi:package-up"
+      },
+      "outgoing_delivered_parcels": {
+        "default": "mdi:package-check"
       }
     }
   }

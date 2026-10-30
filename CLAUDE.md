@@ -50,17 +50,16 @@ subpackages**, mirroring the `ha-bpost` pattern. Each owns its own client,
 coordinator and normaliser; nothing is shared beyond the domain-root
 presentation layer (`const.py`, `device.py`, `events.py`, `diagnostics.py`,
 `sensor.py`/`calendar.py`/`button.py`/`device_trigger.py`). There is
-deliberately **no shared status map and no shared normalizer** — the two
-routes report different shapes (`status.main` + `subStatus[]` vs. a flat
-`shipmentPhase`) and `status.py` at the domain root holds only the shared
-`NEW_ISSUE_URL`, not a map. Do not "simplify" the two into one client just
-because `DELIVERED` happens to be spelled the same in both — that is a
-coincidence, not a shared vocabulary.
+deliberately **no shared status map and no shared normalizer** — the account
+route knows a shipment's direction and has its own fields, and `status.py` at
+the domain root holds only the shared `NEW_ISSUE_URL`, not a map. Both routes
+read `status.main`, so the literals they share must agree (one test guards it),
+but do not "simplify" the two into one client.
 
 **`CONF_SOURCE` in `entry.data` picks the branch, set once at setup and never
 inferred from a token field.** The tracking route is a single hub
 (`unique_id = "tracking"`); the account route is `unique_id =
-f"account:{normalised username}"`, several of which may coexist. An account
+f"account:{sub claim of the id token}"`, several of which may coexist. An account
 entry has no `CONF_PARCELS`, no `parcels` options step, and does not register
 `track_parcel`/`untrack_parcel` — those stay scoped to tracking entries only
 (`services.py`'s `_resolve_entry` filters on `CONF_SOURCE`), and
@@ -94,43 +93,77 @@ ordinary `200` with `data: null` and `errors[0].errorType == "Unauthorized"`
 (missing/expired `Authorization`) — both trigger exactly one remint-and-retry,
 never an infinite loop.
 
-**OmaPosti account source (`account/`) — pre-release, provisional.** This
-emulates the OmaPosti Android app's WebView/SAML PKCE login
-(`account/auth.py`), not a published OAuth flow — isolate it, never launch a
-browser or replay a session. `LOGIN_ENTITY_ID` and `LOGIN_REDIRECT_URI` in
-`const.py` are fixed protocol parameters the login service requires, not
-secrets. The password is used once for the login exchange and is never
-stored; only the token set (`id_token`, `refresh_token`, `role_tokens`) is
-persisted in `entry.data`, redacted from diagnostics by name. Every sign-in
-(setup and reauth) runs on a session with its **own cookie jar**, detached
-afterwards — the SAML hop keeps its login session in cookies, and HA's shared
-session's jar would carry one account's session into the next sign-in.
-When the code only arrives on the success page's auto-submitting form, the
-form's callback is visited first (as the WebView would) and the code from the
-redirect to `LOGIN_REDIRECT_URI` wins — that redirect is the only place the
-app itself reads a code. Refresh uses `refresh_v2` over the legacy
-`token_v2` route: **the id token** (not the refresh token) as
-`Authorization: Bearer`, the refresh token unencoded in the form body.
-`refresh_v2/ack` exists but is deliberately never called — don't add it back. Only an auth-typed GraphQL error
-(`errorType` starting with `Unauthorized`) triggers refresh/reauth; any other
-error is an `UpdateFailed`, so a schema change never forces a sign-in loop.
-Accounts with two-step verification are unconfirmed: the password step then
-yields no code and surfaces as `invalid_auth`, whose text says so. A
-rejected refresh raises `ConfigEntryAuthFailed` from
-`PostiAccountCoordinator._async_update_data`, which Home Assistant turns into
-its normal reauth flow (re-asking only the password, keeping the same
-unique ID). The whole seven-literal `shipmentPhase` map in
-`account/parcels.py` is a **hypothesis**, not a fixture — none of the seven
-literals has been seen on a real account response, every literal is behind
-the one-shot warning net. Never add a field to the account query that
-isn't proven to exist — an unknown field fails the whole GraphQL query, and
-the account schema can't be probed without an account. `eventDescription` is a list of
-`{lang, value}` (English preferred). OmaPosti has no dimensions, and
-`estimatedDeliveryTime` is a point estimate, so `planned_to` stays `None`.
-Account polling never suspends (one batched call, fixed
-`MID_INTERVAL_MINUTES` cadence, `delivered_codes` always empty).
-**This is why the release is 0.x, not 1.0** — promote only once a real
-account confirms the envelope, event order and status literals.
+**OmaPosti account source (`account/`) — pre-release, provisional.** Posti
+retired the password login in October 2026. The source now uses
+strong-authentication login (`account/login.py`) and keeps it alive as a
+trusted device (`account/device.py`) — an unpublished flow, not a documented
+OAuth one: isolate it, never launch a browser or replay a
+session. The bank leg runs in the **user's own browser**; the config flow
+shows the bank's address and takes back the address the browser ends on
+(`authenticate` step), which `login.checked_return_address` accepts only on
+the login host and path with a `code`. Reading the login pages is limited to
+the offered method links and the few hidden values the hand-over needs, and
+fails closed. The requests carry the web view's `X-Requested-With` header:
+Posti binds the code to the PKCE challenge only for those. The callback is
+visited **without following redirects** and the code taken from its
+`Location`. `LOGIN_REDIRECT_URI` and the package/user-agent strings in
+`const.py` are fixed protocol parameters, not secrets. Every sign-in (setup
+and reauth) runs on a session with its **own cookie jar**, detached afterwards
+or when the flow is abandoned (`async_remove`).
+
+After the first login the integration registers an RSA device
+(`device.provision`; one login can register only one) and persists
+`id_token`, `role_tokens` and the `device` block (id, private key PEM, salt,
+subject) in `entry.data`. **No refresh token is kept** — renewal never returns
+one; the device's vault holds the refresh key. The device key is a stronger
+credential than the old tokens: it renews the account without the user's
+bank. It is stored unencrypted (HA has no secret store), the README says so,
+and `diagnostics.py` redacts the whole block. Never log it, and never call
+`deactivations` without a device id (it turns off every trusted device of the
+account, the phones included). Signing timestamps must strictly increase per
+device or Posti answers `TIMESTAMP_REPLAYED`. Removal deactivates this device
+(`async_remove_entry`); a device Posti already dropped is silent, any other
+failure warns with the entry id, never the email.
+
+Failure mapping: a 401/403 from the renewal, `invalid_grant`, or
+`INACTIVE_DEVICE`/`NO_DEVICE_FOUND` raises `PostiAccountReauthRequired` →
+`ConfigEntryAuthFailed` → HA's reauth (the same login steps again). A 404
+without one of those codes, a timeout or anything else is `UpdateFailed`: an
+endpoint that moved must not send anyone to their bank. An entry from the
+password era has no `device` and asks for the new login at setup. The entry
+identity is `account:{sub claim}`; reauth of an older entry moves its unique id
+there and refuses (and deactivates) a device registered on another account.
+
+Shipments come from AppSync `GetConsumerShipments` on the same host as the
+tracking route: `Authorization` is the consumer role token **without**
+`Bearer`, `x-posti-token` is `Bearer <id token>`. A refusal is a 401 **or** a
+200 with `errorType: Unauthorized` **and no shipments**; an error beside
+shipments, or any other error, is an `UpdateFailed`, so a schema change never
+forces a sign-in loop. Never add a field to the account query that isn't
+proven to exist — an unknown field fails the whole query, and the account
+schema can't be probed without an account (every selected field is one the
+anonymous route already resolves). `userRole` `SENDER` shipments are outgoing,
+unless they are on their way back (`RETURN_*`), which makes them incoming; any
+other role counts as incoming so a new value can never make parcels disappear.
+Outgoing parcels live in `coordinator.outgoing` / `outgoing_delivered` (the
+unique-id suffixes `_outgoing_parcels` and `_outgoing_delivered_parcels` are
+what the aggregator buckets by), fire only `_outgoing_parcel_status_changed` /
+`_outgoing_parcel_delivered` and get no per-parcel sensors, as in `ha-bpost`.
+`displayName` is the other party: the sender of an incoming parcel, the
+receiver of an outgoing one. `status.main` is the **same field name** as on the tracking route but
+the account keeps its own map (`account/parcels.py`) because it knows the
+direction; a test asserts both maps agree on the literals they share.
+`DELIVERED` and `RETURN_DELIVERED` are the only literals confirmed on a real
+parcel, so the rest — `ORDER_RECEIVED`, `RETURN_*` and every account-only
+field — stays behind the one-shot warning net. A received parcel in any
+`RETURN_*` stage is `returning`; a sent one coming back goes through the
+stages again. `eventDescription` is a plain string here. OmaPosti has no
+dimensions, and `planned_to` stays `None`; `planned_from` is
+`delivery.time.timestamp` and unconfirmed, so `delivery_window` stays pending.
+Account polling never suspends (one batched call, fixed `MID_INTERVAL_MINUTES`
+cadence, `delivered_codes` always empty). **This is why the release is 0.x, not
+1.0** — promote only once a real account confirms the login, the envelope,
+event order and status literals.
 
 **`url` is `https://www.posti.fi/seuranta/{code}` on both sources.**
 Verified live in a browser on 2026-09-27: the page runs the lookup for the
@@ -139,8 +172,7 @@ to it. An account parcel without a tracking number falls back to its
 shipment number, which has not been confirmed to resolve on that page.
 
 **`raw` is the full record on both sources** — the tracking query is the
-website's own `ShipmentDetails` fragment, the account query every known
-account field; privacy lives in `diagnostics.py`'s `TO_REDACT` (pickup codes, pin
+website's own `ShipmentDetails` fragment, the account query the fields listed above; privacy lives in `diagnostics.py`'s `TO_REDACT` (pickup codes, pin
 codes, addresses, names), never in a trimmed query. Weight comes from both
 sources, dimensions only from tracking's `measurements` (`{unit, value}`,
 `value` a string). Tracking's `pickup_point` prefers the ready-for-pickup
@@ -156,7 +188,7 @@ would be permanently zero by construction.
 **Do not build:** the obsolete edge-walled REST tracker as a fallback;
 contract OAuth tracking/shipping APIs, general web-portal/browser scraping,
 shared credentials or replayed sessions (the narrowly documented account
-WebView exchange is the sole app-emulation exception); payment, action or
+login and trusted-device exchange is the sole exception); payment, action or
 mutation GraphQL operations; manual tracking-code management inside an
 account entry; cross-source deduplication (a code tracked in both sources is
 two separate entries by design — the aggregator owns cross-carrier dedup);

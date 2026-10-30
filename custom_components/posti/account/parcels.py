@@ -1,10 +1,9 @@
-"""Canonical parcel shape for the OmaPosti account-inbox source.
+"""Canonical parcel shape for the OmaPosti account source.
 
-Every mapping here is a hypothesis, not a confirmed shape: no real account
-response has confirmed the envelope, event ordering, field optionality or
-any of the seven ``shipmentPhase`` literals. Ship behind the one-shot warning
-net until a real account confirms it — do not promote this module to 1.0
-semantics on the strength of the tracking route's own gate.
+Only ``DELIVERED`` and ``RETURN_DELIVERED`` have been seen on a real parcel
+(on the tracking route, which shares the ``status.main`` field). Every other
+literal and the account-only fields are source-derived, so the module ships
+behind the one-shot warning net until a real account confirms them.
 """
 
 from __future__ import annotations
@@ -19,114 +18,121 @@ from ..tracking.parcels import parse_iso, tracking_url
 
 _LOGGER = logging.getLogger(__name__)
 
-# Unconfirmed hypotheses: none of these seven literals has been seen on a
-# real account response. Never share this map with the tracking route's
-# ``status.main`` vocabulary — the two are shaped differently and any overlap
-# in spelling (``DELIVERED``) is coincidence, not evidence.
+ROLE_RECEIVER = "RECEIVER"
+ROLE_SENDER = "SENDER"
+
+# A separate map from the tracking route's: this one knows the shipment's
+# direction, and the tracking route maps event text besides ``status.main``.
 STATUS_MAP: dict[str, ParcelStatus] = {
+    "ORDER_RECEIVED": ParcelStatus.REGISTERED,
     "WAITING": ParcelStatus.REGISTERED,
     "RECEIVED": ParcelStatus.IN_TRANSIT,
     "IN_TRANSPORT": ParcelStatus.IN_TRANSIT,
     "IN_DELIVERY": ParcelStatus.OUT_FOR_DELIVERY,
     "READY_FOR_PICKUP": ParcelStatus.AT_PICKUP_POINT,
     "DELIVERED": ParcelStatus.DELIVERED,
-    "RETURNED_TO_SENDER": ParcelStatus.RETURNING,
+    "RETURN_DELIVERED": ParcelStatus.RETURNING,
 }
+# A sent shipment that comes back to the user goes through the stages again;
+# a received one on its way back to its sender is simply returning.
+RETURN_TO_USER_MAP: dict[str, ParcelStatus] = {
+    "RETURN_WAITING": ParcelStatus.REGISTERED,
+    "RETURN_IN_TRANSPORT": ParcelStatus.IN_TRANSIT,
+    "RETURN_READY_FOR_PICKUP": ParcelStatus.AT_PICKUP_POINT,
+}
+RETURN_PREFIX = "RETURN_"
 
 _unmapped_statuses_logged: set[str] = set()
 
 
 def _warn_unmapped_status(code: str) -> None:
-    """Log an unrecognised ``shipmentPhase`` once per HA session.
-
-    Worth reporting even though the map is already a hypothesis: a phase
-    outside these seven means OmaPosti uses one nobody has observed at all,
-    not just one this integration mapped wrong.
-    """
+    """Log an unrecognised ``status.main`` once per HA session."""
     if code in _unmapped_statuses_logged:
         return
     _unmapped_statuses_logged.add(code)
     _LOGGER.warning(
-        "Unrecognised Posti account shipmentPhase — help us map it. Open an "
-        "issue and paste this line: %s\n  shipmentPhase=%s → reported as 'unknown'",
+        "Unrecognised Posti account status.main — help us map it. Open an "
+        "issue and paste this line: %s\n  status.main=%s → reported as 'unknown'",
         NEW_ISSUE_URL,
         code,
     )
 
 
-def map_parcel_status(code: str | None) -> ParcelStatus:
-    """Map a ``shipmentPhase`` literal to a canonical :class:`ParcelStatus`."""
+def map_parcel_status(code: str | None, role: str | None = None) -> ParcelStatus:
+    """Map a ``status.main`` literal to a canonical :class:`ParcelStatus`."""
     if not code:
         return ParcelStatus.UNKNOWN
+    if role == ROLE_SENDER and code in RETURN_TO_USER_MAP:
+        return RETURN_TO_USER_MAP[code]
     mapped = STATUS_MAP.get(code)
     if mapped is not None:
         return mapped
+    if code.startswith(RETURN_PREFIX) and role != ROLE_SENDER:
+        # A received parcel on its way back is returning, whatever the stage.
+        _warn_unmapped_status(code)
+        return ParcelStatus.RETURNING
     _warn_unmapped_status(code)
     return ParcelStatus.UNKNOWN
 
 
+def is_incoming(raw: dict[str, Any]) -> bool:
+    """Whether a shipment comes to the user.
+
+    One the user sent counts as outgoing, unless it is on its way back. A role
+    nobody has seen yet counts as incoming, so a new value can never make
+    parcels disappear.
+    """
+    if raw.get("userRole") != ROLE_SENDER:
+        return True
+    status = raw.get("status")
+    code = status.get("main") if isinstance(status, dict) else None
+    return isinstance(code, str) and code.startswith(RETURN_PREFIX)
+
+
 def _barcode(raw: dict[str, Any]) -> str | None:
-    """Prefer the first tracking number; fall back to the shipment number.
-
-    A code-less account shipment uses ``shipmentNumber`` as the canonical
-    barcode fallback.
-    """
-    tracking_numbers = raw.get("trackingNumbers")
-    if isinstance(tracking_numbers, list) and tracking_numbers:
-        first = tracking_numbers[0]
-        if isinstance(first, str) and first:
-            return first
-    shipment_number = raw.get("shipmentNumber")
-    return (
-        shipment_number
-        if isinstance(shipment_number, str) and shipment_number
-        else None
-    )
-
-
-def _event_description(event: dict[str, Any]) -> str | None:
-    """Pick the English description, falling back to whatever came back.
-
-    ``eventDescription`` is a list of ``{lang, value}``, one per language.
-    """
-    description = event.get("eventDescription")
-    if isinstance(description, dict):
-        description = [description]
-    if not isinstance(description, list):
-        return None
-    translations = [item for item in description if isinstance(item, dict)]
-    for item in translations:
-        if item.get("lang") == "en" and item.get("value"):
-            return item["value"]
-    return next((item["value"] for item in translations if item.get("value")), None)
-
-
-def _party(raw: dict[str, Any], role: str) -> str | None:
-    for party in raw.get("parties") or []:
-        if isinstance(party, dict) and party.get("role") == role:
-            name = party.get("name")
-            if isinstance(name, list):
-                name = ", ".join(
-                    part for part in name if isinstance(part, str) and part
-                )
-            return name or None
+    for key in ("displayId", "shipmentId"):
+        value = raw.get(key)
+        if isinstance(value, str) and value:
+            return value
     return None
 
 
+def _join(value: Any) -> str | None:
+    if isinstance(value, list):
+        value = ", ".join(part for part in value if isinstance(part, str) and part)
+    return value if isinstance(value, str) and value else None
+
+
+def _delivery(raw: dict[str, Any]) -> dict[str, Any]:
+    delivery = raw.get("delivery")
+    return delivery if isinstance(delivery, dict) else {}
+
+
+def _destination_name(raw: dict[str, Any]) -> str | None:
+    destination = _delivery(raw).get("destination")
+    return _join(destination.get("name")) if isinstance(destination, dict) else None
+
+
+def _planned_from(raw: dict[str, Any]) -> str | None:
+    time = _delivery(raw).get("time")
+    stamp = time.get("timestamp") if isinstance(time, dict) else None
+    return stamp if isinstance(stamp, str) and parse_iso(stamp) else None
+
+
 def _pickup_point(raw: dict[str, Any]) -> str | None:
-    """Return the locker or counter, else the ``DELIVERY`` party."""
     point = raw.get("pickupPoint")
-    if isinstance(point, dict) and point.get("lockerAddress"):
-        return point["lockerAddress"]
-    return _party(raw, "DELIVERY")
+    address = point.get("address") if isinstance(point, dict) else None
+    if not isinstance(address, dict):
+        return None
+    return _join(address.get("publicName")) or _join(address.get("city"))
 
 
 def _weight_kg(raw: dict[str, Any]) -> float | None:
-    gross_weight = raw.get("grossWeight")
-    if gross_weight is None:
-        return None
+    measurements = raw.get("measurements")
+    weight = measurements.get("weight") if isinstance(measurements, dict) else None
+    value = weight.get("value") if isinstance(weight, dict) else None
     try:
-        return float(gross_weight)
+        return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
 
@@ -146,31 +152,28 @@ def _delivered_at(events: list | None) -> str | None:
 def build_history(
     events: list | None, *, max_events: int = HISTORY_MAX_EVENTS
 ) -> list[dict]:
-    """Build the canonical ``history`` list from the account's ``events``.
+    """Build the canonical ``history`` list from the shipment's ``events``.
 
-    The order is source-derived (oldest-first) rather than confirmed, so
-    events are sorted on their own parsed timestamp with the original array
-    order kept as the tie-breaker (a stable sort achieves this for free) —
-    not simply trusted or reversed. Each event carries no status code of its
-    own, only free text, so ``status`` is always ``None``.
+    Sorted on each event's own timestamp (equal ones keep Posti's order), not
+    on its place in the list. An event carries text only, so ``status`` is
+    always ``None``.
     """
     parseable: list[tuple[datetime, dict]] = []
     for event in events or []:
         if not isinstance(event, dict):
             continue
         timestamp = event.get("timestamp")
-        if not timestamp:
-            continue
-        parsed = parse_iso(timestamp)
+        parsed = parse_iso(timestamp) if timestamp else None
         if parsed is None:
             continue
+        text = event.get("eventDescription")
         parseable.append(
             (
                 parsed,
                 {
                     "timestamp": timestamp,
                     "status": None,
-                    "raw_status": _event_description(event),
+                    "raw_status": text if isinstance(text, str) and text else None,
                 },
             )
         )
@@ -181,27 +184,28 @@ def build_history(
 def normalize_account_parcel(
     raw: dict[str, Any], *, include_history: bool = False
 ) -> dict[str, Any]:
-    """Return the canonical shape for one account shipment.
-
-    OmaPosti gives no dimensions, so those stay ``None``.
-    """
-    status_code = raw.get("shipmentPhase")
-    status = map_parcel_status(status_code)
+    """Return the canonical shape for one account shipment."""
+    status_block = raw.get("status")
+    status_code = status_block.get("main") if isinstance(status_block, dict) else None
+    status = map_parcel_status(status_code, raw.get("userRole"))
     barcode = _barcode(raw)
     delivered = status is ParcelStatus.DELIVERED
     events = raw.get("events")
-    estimated = None if delivered else raw.get("estimatedDeliveryTime") or None
+    # displayName is the other party: the sender of a received shipment, the
+    # recipient of a sent one. A sent one's destination name only repeats it.
+    other = _join(raw.get("displayName"))
+    outgoing = not is_incoming(raw)
 
     return {
         "carrier": "Posti",
         "barcode": barcode,
-        "sender": _party(raw, "CONSIGNOR"),
-        "receiver": _party(raw, "CONSIGNEE"),
+        "sender": None if outgoing else other,
+        "receiver": other if outgoing else _destination_name(raw),
         "status": status,
         "raw_status": status_code,
         "delivered": delivered,
         "delivered_at": _delivered_at(events) if delivered else None,
-        "planned_from": estimated,
+        "planned_from": None if delivered else _planned_from(raw),
         "planned_to": None,
         "pickup": status is ParcelStatus.AT_PICKUP_POINT,
         "pickup_point": _pickup_point(raw),
