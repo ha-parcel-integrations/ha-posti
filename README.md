@@ -112,6 +112,7 @@ Standard HA removal applies: **Settings → Devices & Services → Posti → ⋮
 | `sensor.posti_delivered_parcels` | Recently delivered parcels (see the retention option) |
 | `sensor.posti_outgoing_parcels` | Active parcels you sent, full list under the `parcels` attribute (OmaPosti account only) |
 | `sensor.posti_outgoing_delivered_parcels` | Recently delivered parcels you sent (OmaPosti account only) |
+| `calendar.posti_deliveries` | Read-only calendar of expected deliveries, no extra API calls |
 | `sensor.posti_last_successful_update` | Diagnostic: when Posti was last polled successfully |
 
 A delivered parcel moves from its per-parcel sensor to the delivered sensor automatically.
@@ -179,7 +180,7 @@ logger:
 ## Troubleshooting
 
 - **A parcel shows `unknown`** — on the tracking-code route this is normal until Posti's public tracker maps that particular status; on an OmaPosti account it means that shipment phase hasn't been confirmed yet. Either way it will resolve itself once the parcel reaches a confirmed status (`delivered`, at least).
-- **A status logs "Unrecognised Posti … status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posti/issues/new) with the logged line so the mapping can be extended.
+- **A status logs "Unrecognised Posti … status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posti/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
 - **`next_delivery` is always empty, and there is no delivery-window field anywhere** — this is not a bug. Posti's public tracking API has no delivery-time field at all, and the OmaPosti account takes a planned time from `delivery.time` only when Posti fills it, which has not been seen on a real parcel yet. `delivered_at` is derived instead, from the newest tracking-code event, only once a parcel is `delivered`.
 - **OmaPosti sign-in fails, or stops working after a while** — the account source relies on the OmaPosti sign-in rather than a published API; if Posti changes that sign-in this can break until the integration is updated. A refused renewal, or a device you removed in the OmaPosti app, triggers Home Assistant's reauthentication flow — sign in again with your bank. An account set up before Posti dropped passwords needs this once.
 
