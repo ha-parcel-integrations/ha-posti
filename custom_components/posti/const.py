@@ -89,6 +89,7 @@ UNAUTHORIZED_ERROR_TYPE = "Unauthorized"
 # Posti's login only works with these client identifiers: one for the API
 # calls, one for the login pages.
 APP_USER_AGENT = "okhttp/4.12.0"
+# suite: allow browser user-agent (the login pages refuse any client identifier but the app's own web view)
 WEB_VIEW_USER_AGENT = (
     "Mozilla/5.0 (Linux; Android 16; sdk_gphone64_x86_64 "
     "Build/BE2A.250530.026.F3; wv) AppleWebKit/537.36 (KHTML, like Gecko) "
