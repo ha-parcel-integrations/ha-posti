@@ -1,6 +1,7 @@
 {
   "domain": "posti",
   "name": "Posti",
+  "categories": ["productivity_information"],
   "codeowners": [
     "@peter-mdf"
   ],
