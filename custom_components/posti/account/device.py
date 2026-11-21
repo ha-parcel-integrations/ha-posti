@@ -40,7 +40,7 @@ class Device:
     device_id: str
     # Plain PEM: Home Assistant has nowhere safer to put it.
     private_key: str
-    # Base64. With no PIN, the salt alone gives the shared secret.
+    # Base64. With no PIN, the salt alone is what the signatures are keyed on.
     salt: str
     # The account the device belongs to (the id token's ``sub``).
     subject: str

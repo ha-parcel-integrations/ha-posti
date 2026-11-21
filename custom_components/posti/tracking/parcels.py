@@ -10,10 +10,12 @@ to each source (see ``status.py``).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Iterable
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 import logging
 from typing import Any
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 
@@ -30,12 +32,13 @@ from ..status import NEW_ISSUE_URL
 
 _LOGGER = logging.getLogger(__name__)
 
-# Only add a literal once a real parcel has shown it. ``RETURN_DELIVERED`` is
-# the return arriving back at the sender — for the recipient that is a
-# return, not a delivery.
+POSTI_ZONE = ZoneInfo("Europe/Helsinki")
+
+# Only add a literal once a real parcel has shown it.
+RETURN_DELIVERED = "RETURN_DELIVERED"
 STATUS_MAP: dict[str, ParcelStatus] = {
     "DELIVERED": ParcelStatus.DELIVERED,
-    "RETURN_DELIVERED": ParcelStatus.RETURNING,
+    RETURN_DELIVERED: ParcelStatus.RETURNING,
 }
 
 # Keyed on the ``locale: "en"`` text the client pins, normalised by
@@ -227,12 +230,13 @@ def _planned(delivery: dict) -> tuple[str | None, str | None]:
     """Return ``(planned_from, planned_to)`` from ``delivery.time``.
 
     Only ever seen as ``null``, so the window reading of ``timestamp`` /
-    ``timestampLatest`` is a guess; each new ``type`` warns once.
+    ``timestampLatest`` is a guess; each new ``type`` warns once. A lone
+    ``timestamp`` runs to the end of its day.
     """
-    time = delivery.get("time")
-    if not isinstance(time, dict) or not time.get("timestamp"):
+    window = delivery.get("time")
+    if not isinstance(window, dict) or not window.get("timestamp"):
         return None, None
-    kind = str(time.get("type"))
+    kind = str(window.get("type"))
     if kind not in _delivery_time_types_logged:
         _delivery_time_types_logged.add(kind)
         _LOGGER.warning(
@@ -241,9 +245,113 @@ def _planned(delivery: dict) -> tuple[str | None, str | None]:
             "has timestampLatest=%s",
             NEW_ISSUE_URL,
             kind,
-            bool(time.get("timestampLatest")),
+            bool(window.get("timestampLatest")),
         )
-    return time["timestamp"], time.get("timestampLatest") or None
+    return planned_window(
+        window["timestamp"], window.get("timestampLatest"), zone=POSTI_ZONE
+    )
+
+
+def _moment(value: Any, zone: tzinfo) -> tuple[datetime, bool, str] | None:
+    """Return ``(aware datetime, date_only, text)`` for a carrier time, or ``None``.
+
+    A naive time or a bare date gets ``zone``; an aware time keeps its offset
+    and, when it came in as a string, its own spelling.
+    """
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        moment = datetime.combine(value, time.min, tzinfo=zone)
+        return moment, True, moment.isoformat()
+    elif isinstance(value, str) and value:
+        try:
+            if len(value) == 10:
+                moment = datetime.combine(
+                    date.fromisoformat(value), time.min, tzinfo=zone
+                )
+                return moment, True, moment.isoformat()
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if parsed.tzinfo:
+            return parsed, False, value
+    else:
+        return None
+    moment = parsed if parsed.tzinfo else parsed.replace(tzinfo=zone)
+    return moment, False, moment.isoformat()
+
+
+def _end_of_day(moment: datetime, zone: tzinfo) -> datetime:
+    local = moment.astimezone(zone)
+    return datetime.combine(local.date(), time(23, 59, 59), tzinfo=zone)
+
+
+def planned_window(
+    start: Any, end: Any, *, zone: tzinfo
+) -> tuple[str | None, str | None]:
+    """Return ``(planned_from, planned_to)`` in the canonical window shape.
+
+    ``start`` and ``end`` are ISO strings, dates or datetimes, or ``None``; an
+    epoch number must be converted first (see ``to_iso_timestamp``). A window
+    keeps both ends. One moment with a time ends at ``23:59:59`` the same local
+    day; a date covers ``00:00:00`` to ``23:59:59``; two dates run from the
+    first day's start to the last day's end. Equal values are one moment,
+    reversed values are swapped, and ``planned_to`` is never set without
+    ``planned_from``. ``zone`` is the carrier's own zone: it dates naive times
+    and bare dates and decides which day a moment ends on, so a ``Z`` moment
+    still ends on the carrier's local day. When nothing is left of that day
+    after the moment, there is no ``planned_to``.
+    """
+    first = _moment(start, zone)
+    last = _moment(end, zone)
+    if first is None:
+        first, last = last, None
+    if first is None:
+        return None, None
+
+    def closing(moment: tuple[datetime, bool, str]) -> datetime:
+        return _end_of_day(moment[0], zone) if moment[1] else moment[0]
+
+    if last is not None and closing(last) < first[0]:
+        first, last = last, first
+    if last is not None and closing(last) == first[0]:
+        last = None
+
+    if last is None:
+        end_of_day = _end_of_day(first[0], zone)
+        return first[2], end_of_day.isoformat() if end_of_day > first[0] else None
+    return first[2], closing(last).isoformat() if last[1] else last[2]
+
+
+_NO_WINDOW_STATUSES = frozenset(
+    {ParcelStatus.AT_PICKUP_POINT, ParcelStatus.RETURNING, ParcelStatus.DELIVERED}
+)
+
+
+def planned_for_status(
+    status: ParcelStatus, planned_from: str | None, planned_to: str | None
+) -> tuple[str | None, str | None]:
+    """Empty the delivery window once the parcel is at its destination or done."""
+    if status in _NO_WINDOW_STATUSES:
+        return None, None
+    return planned_from, planned_to
+
+
+def is_pickup(
+    route_flag: bool | None,
+    status: ParcelStatus,
+    event_statuses: Iterable[ParcelStatus | None] = (),
+) -> bool:
+    """Whether the delivery route ends at a pickup point.
+
+    The carrier's own route flag wins; otherwise the parcel having reached
+    ``AT_PICKUP_POINT`` at any point counts, so the value survives collection.
+    """
+    if route_flag:
+        return True
+    return status is ParcelStatus.AT_PICKUP_POINT or any(
+        event is ParcelStatus.AT_PICKUP_POINT for event in event_statuses
+    )
 
 
 def _quantity(quantity: Any, factors: dict[str, float]) -> float | None:
@@ -307,12 +415,24 @@ def normalize_parcel(
     status_block = raw.get("status") or {}
     status_code = status_block.get("main")
     status = map_parcel_status(status_code)
+    # The contract counts a return as delivered only with evidence it is back at
+    # the sender; RETURN_DELIVERED's wording is unconfirmed, so it stays returning.
     delivered = status is ParcelStatus.DELIVERED
     events = raw.get("events")
     measurements = raw.get("measurements") or {}
     raw_delivery = raw.get("delivery")
     delivery = raw_delivery if isinstance(raw_delivery, dict) else {}
-    planned_from, planned_to = (None, None) if delivered else _planned(delivery)
+    planned_from, planned_to = planned_for_status(status, *_planned(delivery))
+    point = raw.get("pickupPoint")
+    pickup = is_pickup(
+        isinstance(point, dict) and bool(point.get("address")),
+        status,
+        (
+            EVENT_STATUS_MAP.get(_event_key(event.get("eventDescription")))
+            for event in events or []
+            if isinstance(event, dict)
+        ),
+    )
 
     return {
         "carrier": "Posti",
@@ -325,8 +445,8 @@ def normalize_parcel(
         "delivered_at": _delivered_at(events) if delivered else None,
         "planned_from": planned_from,
         "planned_to": planned_to,
-        "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": _pickup_point(events, raw.get("pickupPoint")),
+        "pickup": pickup,
+        "pickup_point": _pickup_point(events, point) if pickup else None,
         "url": tracking_url(tracking_code),
         "weight": _weight_kg(measurements),
         "dimensions": _dimensions_cm(measurements),

@@ -35,10 +35,11 @@ you act in one of these areas:
   summary+diagnostic sensors. Add a new non-parcel sensor's unique_id to the set.
 - **Per-parcel sensors are removed by the summary sensor** via
   `entity_registry.async_remove` (self-removal races and leaves ghosts).
-- **The optional pickup-point summaries are a pair.** A carrier that can tell
-  a parcel is destined for a pickup point exposes
-  `en_route_to_pickup_point` for `pickup is true` before it arrives; one that
-  can reach `ParcelStatus.AT_PICKUP_POINT` also exposes `awaiting_pickup`.
+- **The pickup-point summaries are a pair.** A carrier that can deliver to a
+  pickup point or locker exposes both `en_route_to_pickup_point` and
+  `awaiting_pickup`, even before a real parcel has shown the status or flag
+  (they read 0 until then; record it in `PENDING_*`). A carrier without pickup
+  points exposes neither and keeps `pickup` constantly False.
   See *Parcel contract* in `CONVENTIONS.md`. Say "pickup point", not
   "ServicePoint"/"parcel shop"/"locker", for the generic concept; the
   example carrier demonstrates both canonical sensors.
@@ -75,7 +76,7 @@ of `_async_update_data`) and never cached across refreshes or persisted
 anywhere. The search pins `locale: "en"`: without it event text comes back
 in Finnish, and the event map below is keyed on the English wording.
 `status.main` has two confirmed literals, `DELIVERED` and `RETURN_DELIVERED`
-(the return arriving back at the sender, so `returning`, never `delivered`);
+(status `returning`, `delivered` false: the wording is unconfirmed, so no evidence of arrival back at the sender and the parcel keeps being polled; it counts as delivered once a real return confirms the wording);
 every other literal — and the whole `subStatus[]` dimension — reports
 `unknown` behind a one-shot warning. Events carry no code, only text, so
 `EVENT_STATUS_MAP` maps the English `eventDescription` of each history entry;
@@ -84,9 +85,9 @@ and unrecognised text warns once. The event map never drives the parcel's
 own `status`: on a returned parcel the newest event reads "delivered". The
 pickup point's name is the `city` of the newest ready-for-pickup event.
 `delivered_at` is derived from the newest event's timestamp **only** when
-delivered — this is the *only* delivery-time signal that exists; there is no
-ETA field on this route at all, so `planned_from`/`planned_to` are always
-`None`.
+delivered — this is the *only* delivery-time signal that exists; the only ETA
+field is `delivery.time` (see below), so `planned_from`/`planned_to` are
+`None` in practice.
 Two distinct auth-failure shapes are handled explicitly in
 `tracking/client.py`: a bare non-JSON `401` (missing `X-Posti-Token`) and an
 ordinary `200` with `data: null` and `errors[0].errorType == "Unauthorized"`
@@ -158,8 +159,8 @@ parcel, so the rest — `ORDER_RECEIVED`, `RETURN_*` and every account-only
 field — stays behind the one-shot warning net. A received parcel in any
 `RETURN_*` stage is `returning`; a sent one coming back goes through the
 stages again. `eventDescription` is a plain string here. OmaPosti has no
-dimensions, and `planned_to` stays `None`; `planned_from` is
-`delivery.time.timestamp` and unconfirmed, so `delivery_window` stays pending.
+dimensions; `planned_from` is `delivery.time.timestamp` (unconfirmed, so
+`delivery_window` stays pending) and `planned_to` is the end of that day.
 Account polling never suspends (one batched call, fixed `MID_INTERVAL_MINUTES`
 cadence, `delivered_codes` always empty). **This is why the release is 0.x, not
 1.0** — promote only once a real account confirms the login, the envelope,
@@ -178,12 +179,29 @@ sources, dimensions only from tracking's `measurements` (`{unit, value}`,
 `value` a string). Tracking's `pickup_point` prefers the ready-for-pickup
 event's `city` over `pickupPoint.address.publicName`: on a returned parcel
 the block still named an earlier point than the one it waited at.
-`delivery.time` maps to `planned_from`/`planned_to` with a one-shot warning
-per `type` — it has only ever been seen `null`, so `delivery_window` is not
-claimed in `CAPABILITIES_BY_VARIANT`. `pickup` is only ever `True` exactly when
-`status == AT_PICKUP_POINT`, and no `status.main` literal for a waiting parcel
-has been seen yet, so there is no `en_route_to_pickup_point` sensor — it
-would be permanently zero by construction.
+`delivery.time` maps to `planned_from`/`planned_to` through `planned_window` in
+the Europe/Helsinki zone (a lone timestamp runs to 23:59:59 that day) with a
+one-shot warning per `type` — it has only ever been seen `null`, so
+`delivery_window` is not claimed and is listed as pending on both routes. The
+shared helpers (`planned_window`, `planned_for_status`, `is_pickup`) live in
+`tracking/parcels.py`, which the account normaliser imports.
+
+**Parcel contract notes.** `delivered` is `status is DELIVERED` only
+(`RETURN_DELIVERED` stays `returning` with `delivered` false until a real
+return confirms the wording; the contract allows it once there is evidence);
+`delivered_at` is the newest event's timestamp when delivered. `pickup` is true when
+the `pickupPoint` block carries an address (still unverified, pending a real
+parcel with the block), or the status is
+`AT_PICKUP_POINT`, or (tracking only) any event text maps to it; it stays true
+after collection and on a returned parcel. The account normaliser has no event
+statuses (event text is not mapped there), so it relies on the block. Tracking's
+`pickup_point` still prefers the ready-for-pickup event's `city`, and both
+routes publish it only when `pickup` is true. Both pickup sensors
+(`awaiting_pickup`, `en_route_to_pickup_point`) exist on both routes: no real
+parcel has shown a waiting `status.main` literal or a `pickupPoint` on a parcel
+still in transit, so they read 0 (tracking: a waiting parcel whose `status.main`
+is unmapped is `unknown` and lands in en route until then). The calendar shows a
+whole-day window as an all-day event.
 
 **Do not build:** the obsolete edge-walled REST tracker as a fallback;
 contract OAuth tracking/shipping APIs, general web-portal/browser scraping,

@@ -146,11 +146,12 @@ def test_delivery_time_fills_the_planned_window_and_warns_once(caplog):
     assert "delivery.time" not in caplog.text
 
 
-def test_delivery_time_without_latest_is_a_point_estimate():
+def test_delivery_time_without_latest_runs_to_the_end_of_the_day():
     hit = unknown_status_hit()
     hit["delivery"] = {"time": {"type": "X", "timestamp": "2026-05-03T08:00:00.000Z"}}
     parcel = parcels.normalize_parcel(hit, tracking_code=TRACKING_CODE)
-    assert parcel["planned_to"] is None
+    assert parcel["planned_from"] == "2026-05-03T08:00:00.000Z"
+    assert parcel["planned_to"] == "2026-05-03T23:59:59+03:00"
 
 
 def test_delivered_parcel_drops_the_planned_window():
@@ -262,7 +263,7 @@ def test_tracking_url_escapes_the_code_and_skips_empty():
     assert parcels.tracking_url("") is None
 
 
-def test_return_delivered_is_returning_not_delivered():
+def test_return_delivered_stays_returning_and_not_delivered():
     parcel = parcels.normalize_parcel(returned_hit(), tracking_code=TRACKING_CODE)
     assert parcel["status"] is ParcelStatus.RETURNING
     assert parcel["delivered"] is False
@@ -272,7 +273,7 @@ def test_return_delivered_is_returning_not_delivered():
 def test_pickup_point_comes_from_the_ready_for_pickup_event():
     parcel = parcels.normalize_parcel(returned_hit(), tracking_code=TRACKING_CODE)
     assert parcel["pickup_point"] == "Parcel locker, Example Store"
-    assert parcel["pickup"] is False
+    assert parcel["pickup"] is True
 
 
 def test_pickup_point_is_none_without_a_pickup_event():

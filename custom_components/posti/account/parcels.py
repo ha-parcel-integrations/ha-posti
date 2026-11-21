@@ -14,7 +14,15 @@ from typing import Any
 
 from ..const import HISTORY_MAX_EVENTS, ParcelStatus
 from ..status import NEW_ISSUE_URL
-from ..tracking.parcels import parse_iso, tracking_url
+from ..tracking.parcels import (
+    POSTI_ZONE,
+    RETURN_DELIVERED,
+    is_pickup,
+    parse_iso,
+    planned_for_status,
+    planned_window,
+    tracking_url,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +39,7 @@ STATUS_MAP: dict[str, ParcelStatus] = {
     "IN_DELIVERY": ParcelStatus.OUT_FOR_DELIVERY,
     "READY_FOR_PICKUP": ParcelStatus.AT_PICKUP_POINT,
     "DELIVERED": ParcelStatus.DELIVERED,
-    "RETURN_DELIVERED": ParcelStatus.RETURNING,
+    RETURN_DELIVERED: ParcelStatus.RETURNING,
 }
 # A sent shipment that comes back to the user goes through the stages again;
 # a received one on its way back to its sender is simply returning.
@@ -189,8 +197,15 @@ def normalize_account_parcel(
     status_code = status_block.get("main") if isinstance(status_block, dict) else None
     status = map_parcel_status(status_code, raw.get("userRole"))
     barcode = _barcode(raw)
+    # The contract counts a return as delivered only with evidence it is back at
+    # the sender; RETURN_DELIVERED's wording is unconfirmed, so it stays returning.
     delivered = status is ParcelStatus.DELIVERED
     events = raw.get("events")
+    planned_from, planned_to = planned_for_status(
+        status, *planned_window(_planned_from(raw), None, zone=POSTI_ZONE)
+    )
+    point = raw.get("pickupPoint")
+    pickup = is_pickup(isinstance(point, dict) and bool(point.get("address")), status)
     # displayName is the other party: the sender of a received shipment, the
     # recipient of a sent one. A sent one's destination name only repeats it.
     other = _join(raw.get("displayName"))
@@ -205,10 +220,10 @@ def normalize_account_parcel(
         "raw_status": status_code,
         "delivered": delivered,
         "delivered_at": _delivered_at(events) if delivered else None,
-        "planned_from": None if delivered else _planned_from(raw),
-        "planned_to": None,
-        "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": _pickup_point(raw),
+        "planned_from": planned_from,
+        "planned_to": planned_to,
+        "pickup": pickup,
+        "pickup_point": _pickup_point(raw) if pickup else None,
         "url": tracking_url(barcode),
         "weight": _weight_kg(raw),
         "dimensions": None,

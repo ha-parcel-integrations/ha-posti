@@ -95,7 +95,7 @@ def test_full_shipment_is_normalised():
     assert parcel["pickup"] is True
     assert parcel["pickup_point"] == "Example Store"
     assert parcel["receiver"] == "Example Recipient"
-    assert parcel["planned_from"] == "2026-05-03T12:00:00.000Z"
+    assert parcel["planned_from"] is None
     assert parcel["planned_to"] is None
     assert parcel["weight"] == 1.25
     assert parcel["dimensions"] is None
@@ -170,3 +170,9 @@ def test_a_sent_parcel_coming_back_names_the_other_party_as_sender():
     parcel = normalize_account_parcel(raw)
     assert parcel["sender"] == "Example Friend"
     assert parcel["status"] is ParcelStatus.IN_TRANSIT
+
+
+def test_planned_time_runs_to_the_end_of_its_day():
+    parcel = normalize_account_parcel(full_shipment("IN_DELIVERY"))
+    assert parcel["planned_from"] == "2026-05-03T12:00:00.000Z"
+    assert parcel["planned_to"] == "2026-05-03T23:59:59+03:00"

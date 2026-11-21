@@ -23,7 +23,7 @@ from custom_components.posti.const import (
 from custom_components.posti.tracking.client import PostiTrackingApiError
 from custom_components.posti.tracking.coordinator import PostiTrackingCoordinator
 
-from .payloads import TRACKING_CODE, delivered_hit, unknown_status_hit
+from .payloads import TRACKING_CODE, delivered_hit, returned_hit, unknown_status_hit
 
 OTHER_CODE = "JJFI00000000000002"
 
@@ -176,6 +176,23 @@ async def test_delivered_code_skipped_from_fetch(hass):
     client.async_get_parcel.assert_called_once_with(TRACKING_CODE)
     assert any(p["barcode"] == OTHER_CODE for p in coordinator.delivered)
     assert data[0]["barcode"] == TRACKING_CODE
+
+
+async def test_returned_code_keeps_being_fetched(hass):
+    entry = _entry_with(_parcels(TRACKING_CODE))
+    entry.add_to_hass(hass)
+    client = _client()
+    client.async_get_parcel.return_value = returned_hit()
+    coordinator = PostiTrackingCoordinator(hass, client, entry)
+
+    data = await coordinator._async_update_data()
+    assert data[0]["status"] == ParcelStatus.RETURNING
+    assert data[0]["delivered"] is False
+    assert coordinator.delivered_codes == set()
+
+    client.async_get_parcel.reset_mock()
+    await coordinator._async_update_data()
+    client.async_get_parcel.assert_called_once_with(TRACKING_CODE)
 
 
 async def test_delivered_code_forgotten_when_untracked(hass):

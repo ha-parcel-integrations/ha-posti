@@ -37,8 +37,8 @@ KNOWN_CAPABILITIES = frozenset(
 )
 
 # Only the tracking route reports dimensions. Neither claims delivery_window:
-# the tracking route's delivery.time has only been seen null, and the account
-# route gives a single estimate. Keep in sync with each normalizer.
+# delivery.time has only been seen null on the tracking route, and the account
+# route has never been seen with one. Keep in sync with each normalizer.
 CAPABILITIES_BY_VARIANT = {
     "Tracking": frozenset({"weight", "dimensions", "pickup_point", "url", "history"}),
     "Account": frozenset({"weight", "pickup_point", "url", "history"}),
@@ -47,6 +47,7 @@ CAPABILITIES_BY_VARIANT = {
 # Fields not confirmed yet — the docs site shows them as "awaiting data".
 # Move a field into the declaration above once a real parcel shows it.
 PENDING_CAPABILITIES_BY_VARIANT = {
+    "Tracking": frozenset({"delivery_window"}),
     "Account": frozenset({"delivery_window"}),
 }
 CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]

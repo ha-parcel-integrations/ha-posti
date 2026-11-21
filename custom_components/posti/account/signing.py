@@ -93,7 +93,7 @@ class Signer:
     def __init__(
         self, key: rsa.RSAPrivateKey, device_id: str, subject: str, secret: str
     ) -> None:
-        """Bind the key to the device, its account and the shared secret."""
+        """Bind the key to the device, its account and the key material it signs with."""
         self._key = key
         self._device_id = device_id
         self._subject = subject
