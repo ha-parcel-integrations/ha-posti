@@ -216,6 +216,7 @@ def normalize_account_parcel(
         "barcode": barcode,
         "sender": None if outgoing else other,
         "receiver": other if outgoing else _destination_name(raw),
+        "contents": None,
         "status": status,
         "raw_status": status_code,
         "delivered": delivered,

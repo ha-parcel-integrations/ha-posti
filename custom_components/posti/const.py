@@ -33,7 +33,15 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 # subset of this — it exists so a typo in CAPABILITIES fails a test instead of
 # silently dropping a carrier off a table on the docs site.
 KNOWN_CAPABILITIES = frozenset(
-    {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
+    {
+        "weight",
+        "dimensions",
+        "delivery_window",
+        "pickup_point",
+        "url",
+        "history",
+        "contents",
+    }
 )
 
 # Only the tracking route reports dimensions. Neither claims delivery_window:
@@ -72,6 +80,9 @@ TRACKING_GRAPHQL_URL = "https://graphql.posti.fi/graphql"
 # ``{tracking_code}`` dicts — this route has no account or parcel feed, so
 # the user enters the codes themselves.
 CONF_PARCELS = "parcels"
+# The user-set parcel contents, and the optional entry an update is limited to.
+CONF_CONTENTS = "contents"
+CONF_CONFIG_ENTRY_ID = "config_entry_id"
 CONF_TRACKING_CODE = "tracking_code"
 
 # --- OmaPosti account source: strong-authentication login + trusted device --

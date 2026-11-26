@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -22,6 +22,7 @@ from ..const import (
     MID_INTERVAL_MINUTES,
     ParcelStatus,
 )
+from ..contents import ContentsStore, normalize_code
 from ..events import (
     fire_incoming_change_events,
     fire_outgoing_change_events,
@@ -53,6 +54,10 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
             update_interval=timedelta(minutes=MID_INTERVAL_MINUTES),
         )
         self._client = client
+        self.contents_store = ContentsStore(hass, entry.entry_id)
+        # Every code this entry lists, outgoing and delivered ones included:
+        # update_contents asks which entry a code belongs to.
+        self.known_codes: frozenset[str] = frozenset()
         self.delivered: list[dict] = []
         self.outgoing: list[dict] = []
         self.outgoing_delivered: list[dict] = []
@@ -67,6 +72,26 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         # Fixed cadence — an account inbox is one batched call with nothing
         # to tier on, unlike the per-parcel tracking coordinator.
         self._current_tier_minutes: int | None = MID_INTERVAL_MINUTES
+
+    def _apply_contents(self, parcel: dict) -> dict:
+        """Put the user's own contents text over the carrier's, when there is one."""
+        user_value = self.contents_store.get(parcel["barcode"] or "")
+        if user_value is not None:
+            parcel["contents"] = user_value
+        return parcel
+
+    @callback
+    def async_reapply_contents(self) -> None:
+        """Re-read the contents store into the published parcels, without a poll."""
+        for parcel in [
+            *(self.data or []),
+            *self.delivered,
+            *self.outgoing,
+            *self.outgoing_delivered,
+        ]:
+            parcel["contents"] = None
+            self._apply_contents(parcel)
+        self.async_update_listeners()
 
     @property
     def current_tier_minutes(self) -> int | None:
@@ -115,8 +140,15 @@ class PostiAccountCoordinator(DataUpdateCoordinator[list[dict]]):
         incoming_parcels: list[dict] = []
         outgoing_parcels: list[dict] = []
         for raw in shipments:
-            parcel = normalize_account_parcel(raw, include_history=include_history)
+            parcel = self._apply_contents(
+                normalize_account_parcel(raw, include_history=include_history)
+            )
             (incoming_parcels if is_incoming(raw) else outgoing_parcels).append(parcel)
+        self.known_codes = frozenset(
+            normalize_code(parcel["barcode"])
+            for parcel in (*incoming_parcels, *outgoing_parcels)
+            if parcel["barcode"]
+        )
 
         active = [parcel for parcel in incoming_parcels if not parcel["delivered"]]
         delivered = [parcel for parcel in incoming_parcels if parcel["delivered"]]

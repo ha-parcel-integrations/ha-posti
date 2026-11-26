@@ -200,3 +200,10 @@ def test_outgoing_sensors_count_and_list_sent_parcels():
     assert delivered.native_value == 1
     assert delivered.extra_state_attributes["parcels"][0]["barcode"] == "S3"
     assert delivered.unique_id == "e1_outgoing_delivered_parcels"
+
+
+def test_next_delivery_attributes_carry_the_contents():
+    parcel = _parcel("A", planned_from="2099-05-01T10:00:00Z")
+    parcel["contents"] = "Running shoes"
+    sensor = PostiNextDeliverySensor(_coordinator([parcel]), _entry())
+    assert sensor.extra_state_attributes["contents"] == "Running shoes"

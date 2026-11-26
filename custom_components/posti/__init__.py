@@ -24,6 +24,7 @@ from .const import (
     SOURCE_ACCOUNT,
     SOURCE_TRACKING,
 )
+from .contents import ContentsStore
 from .services import async_setup_services, async_unload_services
 from .tracking.client import PostiTrackingClient
 from .tracking.coordinator import PostiTrackingCoordinator
@@ -81,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> boo
     # too late for HA to catch cleanly (it logs a warning and half-sets-up
     # the entry); doing the first refresh here lets a transient failure —
     # or an account needing reauth — fail the whole entry setup cleanly.
+    await coordinator.contents_store.async_load()
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = PostiData(client=client, coordinator=coordinator)
@@ -96,8 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> boo
     # re-arms scheduling.
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
-    if not is_account:
-        async_setup_services(hass)
+    async_setup_services(hass, hub=not is_account)
 
     return True
 
@@ -111,25 +112,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> bo
     """Unload a Posti config entry."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
-    # The services are shared across tracking hubs; only remove them once
-    # the last *tracking* entry is gone, so an account entry unloading never
-    # touches them and a second tracking hub keeps them registered.
-    others_loaded = any(
-        other.entry_id != entry.entry_id
-        and other.state is ConfigEntryState.LOADED
-        and other.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+    # Drop a service when the last entry that needs it goes, so unloading one
+    # entry never breaks the others.
+    others = [
+        other
         for other in hass.config_entries.async_entries(DOMAIN)
+        if other.entry_id != entry.entry_id and other.state is ConfigEntryState.LOADED
+    ]
+    hubs_left = any(
+        other.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+        for other in others
     )
-    if (
-        entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
-        and not others_loaded
-    ):
-        async_unload_services(hass)
+    async_unload_services(hass, hubs_left=hubs_left, entries_left=bool(others))
     return True
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: PostiConfigEntry) -> None:
-    """Take the integration's device off the OmaPosti account on removal."""
+    """Delete the entry's contents and take an account's device off OmaPosti."""
+    await ContentsStore(hass, entry.entry_id).async_remove()
     if entry.data.get(CONF_SOURCE) != SOURCE_ACCOUNT or not entry.data.get(CONF_DEVICE):
         return
     session = async_get_clientsession(hass)

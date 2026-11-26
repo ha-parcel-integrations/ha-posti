@@ -18,6 +18,7 @@ TO_REDACT = {
     "barcode",
     "sender",
     "receiver",
+    "contents",
     "url",
     # tracking-route payload fields
     "displayId",
